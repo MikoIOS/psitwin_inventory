@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import hmac
 import json
+import ssl
 import time
 
 from dataclasses import (
@@ -399,7 +400,11 @@ class MonitoreoService:
                     hostname=settings.mqtt_host,
                     port=settings.mqtt_port,
                     username=settings.mqtt_user,
-                    password=settings.mqtt_password
+                    password=settings.mqtt_password,
+                    tls_context=(
+                        ssl.create_default_context(cafile=settings.mqtt_ca_file)
+                        if settings.mqtt_tls else None
+                    )
                 ) as cliente:
 
                     await cliente.subscribe(TEMA_LECTURAS)
