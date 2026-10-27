@@ -1,7 +1,8 @@
 /**
  * Inventarios (stock real por producto y rack).
  *   POST /inventarios · GET /inventarios · GET /inventarios/stock-bajo · GET /inventarios/sin-stock
- *   GET /inventarios/sobre-stock · GET /inventarios/producto/{id_producto} · GET /inventarios/rack/{id_rack}
+ *   GET /inventarios/sobre-stock · GET /inventarios/producto/{id_producto}
+ *   GET /detalles-inventario/rack/{id_rack} (stock por ubicación, esquema v2)
  *   GET /inventarios/{id} · PUT /inventarios/{id} · DELETE /inventarios/{id}
  *
  *   GET /inventarios/{id}/historial → quién lo creó / cambió sus límites
@@ -25,7 +26,7 @@ export const inventariosApi = {
   listByProducto: async (idProducto: string): Promise<Inventario[]> =>
     norm.inventario.list(await api.get(`/inventarios/producto/${seg(idProducto)}`)),
   listByRack: async (idRack: string): Promise<Inventario[]> =>
-    norm.inventario.list(await api.get(`/inventarios/rack/${seg(idRack)}`)),
+    norm.inventario.list(await api.get(`/detalles-inventario/rack/${seg(idRack)}`)),
   get: async (id: string): Promise<Inventario> => norm.inventario.one(await api.get(`/inventarios/${seg(id)}`)),
   update: async (id: string, body: InventarioUpdate): Promise<Inventario> =>
     norm.inventario.one(await api.put(`/inventarios/${seg(id)}`, body)),

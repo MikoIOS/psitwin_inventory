@@ -301,6 +301,8 @@ export interface ProductoUpdate {
 
 export interface Inventario extends Auditoria {
   id_inventario: Id
+  /** Identificador de la ubicación de stock en el esquema v2. */
+  id_detalle_inventario?: Id
   id_producto: Id
   id_rack: Id
   stock_actual: number

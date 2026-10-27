@@ -286,7 +286,7 @@ function RackPanel({ rack, codigo, onEditar, onEliminar }: { rack: Rack; codigo:
         loading={invQ.isLoading}
         error={invQ.error}
         onRetry={() => void invQ.refetch()}
-        rowKey={(i) => i.id_inventario}
+        rowKey={(i) => i.id_detalle_inventario ?? i.id_inventario}
         empty={<EmptyState compact icon="box" title="Rack vacío" description="Este rack no tiene inventario registrado." />}
         columns={[
           {
