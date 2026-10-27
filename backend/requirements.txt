@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+pymongo
+motor
+pydantic
+pydantic-settings
+email-validator
+bcrypt
+pwdlib[argon2]
+PyJWT
+python-dotenv
+lightgbm
+pandas
+numpy
+aiomqtt
+websockets

@@ -1,0 +1,51 @@
+# Variables de entorno
+.env
+.env.*
+!.env.example
+
+# --- Frontend (Node/Vite) ---
+node_modules
+dist
+*.local
+*.tsbuildinfo
+
+# --- Backend (Python) ---
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Entorno virtual
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Pytest
+.pytest_cache/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Vercel (link local del proyecto)
+.vercel/
+
+# Datos locales (no versionar)
+/inventarios_legacy.json
+/inventarios_v2.json
+/snapshot_completo.json
+
+# Plantillas y secretos de despliegue
+!.env.prod.example
+/nginx/certs/*
+/nginx/www/*
+/nginx/mosquitto/passwd
+
+# Configuración local de asistentes y paquetes de entrega
+.claude/
+.agents/
+.codex/
+.aws/
+*.bundle

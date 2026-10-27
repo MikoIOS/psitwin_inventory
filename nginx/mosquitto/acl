@@ -1,0 +1,8 @@
+# Backend: solo lee las lecturas de los dispositivos.
+user psitwin-backend
+topic read psitwin/dispositivos/#
+
+# Dispositivos (usuario compartido): solo publican lecturas.
+# ponytail: en la nube, un usuario/ACL por dispositivo.
+user psitwin-dispositivo
+topic write psitwin/dispositivos/+/lecturas

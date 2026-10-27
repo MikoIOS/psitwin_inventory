@@ -1,0 +1,94 @@
+name: psitwin
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: [CMD, mongosh, --quiet, --eval, "quit(db.adminCommand('ping').ok ? 0 : 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [psitwin]
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1883:1883"
+    volumes:
+      - ./nginx/mosquitto:/mosquitto/config:ro
+      - mosquitto_data:/mosquitto/data
+    networks: [psitwin]
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    networks: [psitwin]
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file: ./backend/.env.prod
+    depends_on:
+      mongo:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+      ollama:
+        condition: service_started
+    expose: ["8000"]
+    healthcheck:
+      test: [CMD, python, -c, "import json,urllib.request; assert json.load(urllib.request.urlopen('http://localhost:8000/health', timeout=5))['status'] == 'healthy'"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
+    networks: [psitwin]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    restart: unless-stopped
+    expose: ["80"]
+    networks: [psitwin]
+
+  nginx:
+    image: nginx:stable-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?Configura DOMAIN en .env.prod}
+      NGINX_ENVSUBST_FILTER: ^DOMAIN$$
+    volumes:
+      - ./nginx/templates/${NGINX_CONFIG:-http}.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./nginx/certs:/etc/letsencrypt:ro
+      - ./nginx/www:/var/www/certbot:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    networks: [psitwin]
+
+  certbot:
+    image: certbot/certbot:latest
+    profiles: [tools]
+    volumes:
+      - ./nginx/certs:/etc/letsencrypt
+      - ./nginx/www:/var/www/certbot
+    networks: [psitwin]
+
+volumes:
+  mongo_data:
+  mosquitto_data:
+  ollama_data:
+networks:
+  psitwin:
+    driver: bridge

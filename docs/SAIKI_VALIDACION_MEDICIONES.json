@@ -1,0 +1,264 @@
+{
+  "python": "3.12.2",
+  "environment": "venv/saiki-tests-py312",
+  "suite_passed": 105,
+  "subtests_passed": 26,
+  "type": "real_fastapi_jwt_services_repositories_synthetic_database_and_mock_ollama",
+  "mongodb_real_measured": false,
+  "requests": [
+    {
+      "question": "Hola Saiki.",
+      "status": 200,
+      "total_http_ms": 8.663099999466795,
+      "classification_ms": 0.03079999987676274,
+      "tools": [],
+      "ollama_mock_calls": 0,
+      "mock_inference_times_ms": [],
+      "mongodb_real_ms": null,
+      "answer": "¡Hola! ¿En qué puedo ayudarte con tu almacén?"
+    },
+    {
+      "question": "¿Cómo está mi inventario?",
+      "status": 200,
+      "total_http_ms": 9.046099999977741,
+      "classification_ms": 0.08739999975659885,
+      "tools": [
+        {
+          "name": "get_warehouse_status",
+          "duration_ms": 0.46910000128264073
+        }
+      ],
+      "ollama_mock_calls": 0,
+      "mock_inference_times_ms": [],
+      "mongodb_real_ms": null,
+      "answer": "Actualmente tienes 1 productos distintos y 3 unidades registradas en tu inventario."
+    },
+    {
+      "question": "¿Cuántos productos tengo?",
+      "status": 200,
+      "total_http_ms": 8.415700000114157,
+      "classification_ms": 0.05779999992228113,
+      "tools": [
+        {
+          "name": "get_product",
+          "duration_ms": 0.2990000011777738
+        }
+      ],
+      "ollama_mock_calls": 0,
+      "mock_inference_times_ms": [],
+      "mongodb_real_ms": null,
+      "answer": "Tienes 1 productos registrados en tu catálogo."
+    },
+    {
+      "question": "¿Tengo almacenes?",
+      "status": 200,
+      "total_http_ms": 6.969399999434245,
+      "classification_ms": 0.04129999979340937,
+      "tools": [
+        {
+          "name": "get_warehouse_status",
+          "duration_ms": 0.359200001184945
+        }
+      ],
+      "ollama_mock_calls": 0,
+      "mock_inference_times_ms": [],
+      "mongodb_real_ms": null,
+      "answer": "Tienes 1 almacenes registrados en PsiTwin."
+    },
+    {
+      "question": "¿Cuánto stock tengo?",
+      "status": 200,
+      "total_http_ms": 9.180899998682435,
+      "classification_ms": 0.06049999865354039,
+      "tools": [
+        {
+          "name": "get_warehouse_status",
+          "duration_ms": 0.4692999991675606
+        }
+      ],
+      "ollama_mock_calls": 0,
+      "mock_inference_times_ms": [],
+      "mongodb_real_ms": null,
+      "answer": "Actualmente tienes 3 unidades en tu inventario."
+    },
+    {
+      "question": "¿Dónde está el arroz?",
+      "status": 200,
+      "total_http_ms": 9.127100000114297,
+      "classification_ms": 0.08900000102585182,
+      "tools": [
+        {
+          "name": "get_product",
+          "duration_ms": 0.30950000109442044
+        }
+      ],
+      "ollama_mock_calls": 0,
+      "mock_inference_times_ms": [],
+      "mongodb_real_ms": null,
+      "answer": "No encontré arroz en el catálogo de tu empresa."
+    },
+    {
+      "question": "¿Qué movimientos recientes tengo?",
+      "status": 200,
+      "total_http_ms": 11.070399999880465,
+      "classification_ms": 0.0808000004326459,
+      "tools": [
+        {
+          "name": "get_recent_movements",
+          "duration_ms": 0.25039999854925554
+        }
+      ],
+      "ollama_mock_calls": 2,
+      "mock_inference_times_ms": [
+        0.01700000029813964,
+        0.008300001354655251
+      ],
+      "mongodb_real_ms": null,
+      "answer": "Consulta completada usando exclusivamente los datos sintéticos de la prueba."
+    },
+    {
+      "question": "¿Tengo alertas activas?",
+      "status": 200,
+      "total_http_ms": 10.97729999855801,
+      "classification_ms": 0.07250000089698005,
+      "tools": [
+        {
+          "name": "get_active_alerts",
+          "duration_ms": 0.1787999990483513
+        }
+      ],
+      "ollama_mock_calls": 2,
+      "mock_inference_times_ms": [
+        0.01049999991664663,
+        0.008600000001024455
+      ],
+      "mongodb_real_ms": null,
+      "answer": "Consulta completada usando exclusivamente los datos sintéticos de la prueba."
+    },
+    {
+      "question": "¿Qué productos tienen riesgo de agotarse?",
+      "status": 200,
+      "total_http_ms": 9.78209999993851,
+      "classification_ms": 0.0442000000475673,
+      "tools": [
+        {
+          "name": "get_inventory_risk",
+          "duration_ms": 0.29379999978118576
+        }
+      ],
+      "ollama_mock_calls": 2,
+      "mock_inference_times_ms": [
+        0.009500001397100277,
+        0.01669999983278103
+      ],
+      "mongodb_real_ms": null,
+      "answer": "Consulta completada usando exclusivamente los datos sintéticos de la prueba."
+    },
+    {
+      "question": "¿Qué me recomiendas reponer?",
+      "status": 200,
+      "total_http_ms": 10.247700000036275,
+      "classification_ms": 0.07199999890872277,
+      "tools": [
+        {
+          "name": "get_recommendations",
+          "duration_ms": 0.1785000004019821
+        }
+      ],
+      "ollama_mock_calls": 2,
+      "mock_inference_times_ms": [
+        0.008799999704933725,
+        0.009999999747378752
+      ],
+      "mongodb_real_ms": null,
+      "answer": "Consulta completada usando exclusivamente los datos sintéticos de la prueba."
+    },
+    {
+      "question": "¿Cuál será la demanda de la próxima semana?",
+      "status": 200,
+      "total_http_ms": 511.57600000078673,
+      "classification_ms": 0.05980000059935264,
+      "tools": [
+        {
+          "name": "get_forecast",
+          "duration_ms": 499.72449999950186
+        }
+      ],
+      "ollama_mock_calls": 2,
+      "mock_inference_times_ms": [
+        0.007300001016119495,
+        0.013300001228344627
+      ],
+      "mongodb_real_ms": null,
+      "answer": "La proyección corresponde a la demanda de los próximos 7 días. Consulta completada usando exclusivamente los datos sintéticos de la prueba."
+    },
+    {
+      "question": "Quiero una proyección de mi inventario.",
+      "status": 200,
+      "total_http_ms": 517.4492000005557,
+      "classification_ms": 0.055100001191021875,
+      "tools": [
+        {
+          "name": "get_forecast",
+          "duration_ms": 505.8543000013742
+        }
+      ],
+      "ollama_mock_calls": 2,
+      "mock_inference_times_ms": [
+        0.007300001016119495,
+        0.012700000297627412
+      ],
+      "mongodb_real_ms": null,
+      "answer": "La proyección corresponde a la demanda de los próximos 7 días. Consulta completada usando exclusivamente los datos sintéticos de la prueba."
+    }
+  ],
+  "location_real_ollama_before": {
+    "kind": "real_fastapi_jwt_and_ollama_synthetic_database",
+    "status": 504,
+    "total_ms": 180029.01899999962,
+    "inference_times_ms": [
+      180009.48659999995
+    ],
+    "tools": [],
+    "response": {
+      "detail": "Ollama tardó demasiado en responder."
+    }
+  },
+  "location_direct_after": {
+    "kind": "real_fastapi_jwt_ollama_available_but_bypassed_synthetic_database",
+    "status": 200,
+    "total_ms": 7.132900000215159,
+    "inference_times_ms": [],
+    "tools": [
+      {
+        "name": "get_product",
+        "duration_ms": 0.2602000004117144
+      }
+    ],
+    "response": {
+      "answer": "No encontré arroz en el catálogo de tu empresa.",
+      "model": "qwen3:4b",
+      "base_url": "http://127.0.0.1:11434",
+      "source": "backend",
+      "context": {},
+      "warnings": [],
+      "data": {
+        "get_product": [
+          {
+            "id_producto": "A-product",
+            "id_empresa": "A",
+            "nombre": "Producto sintético A"
+          }
+        ]
+      },
+      "visualization": {
+        "type": "none"
+      },
+      "sources": [
+        "PRODUCTO"
+      ]
+    }
+  },
+  "forecast": "Real FeatureBuilder and LightGBM models, synthetic history/context",
+  "risk": "Mocked evaluator for conversational measurements; formulas unchanged"
+}

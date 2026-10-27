@@ -1,0 +1,229 @@
+@import 'tailwindcss';
+
+/*
+ * PsiTwin — tokens de diseño.
+ * Identidad: "planta de almacén". Fondo tipo concreto cálido, tinta grafito,
+ * acento ámbar de señalización industrial y tipografía monoespaciada para códigos
+ * y cantidades. Todos los colores se consumen como utilidades Tailwind
+ * (bg-surface, text-fg-muted, border-border, bg-accent, text-danger, ...).
+ * Tema oscuro automático con prefers-color-scheme.
+ */
+
+:root {
+  --bg: #f4f2ee;
+  --surface: #ffffff;
+  --surface-2: #edeae4;
+  --surface-3: #e3dfd7;
+  --border: #dad5cc;
+  --border-strong: #b9b2a5;
+  --fg: #1d1b18;
+  --fg-muted: #57524a;
+  --fg-subtle: #736c61;
+
+  --accent: #f2a516;
+  --accent-hover: #db9208;
+  --accent-fg: #1d1b18;
+  --accent-soft: #fdf1d6;
+  --accent-ink: #7f5300;
+
+  --info: #1f6fb2;
+  --info-soft: #e3eef8;
+  --success: #2a7447;
+  --success-soft: #e2f2e8;
+  --warning: #9a5c00;
+  --warning-soft: #fcefd9;
+  --danger: #b8322a;
+  --danger-soft: #fbe5e2;
+  --danger-hover: #9c261f;
+  --neutral-soft: #ece9e3;
+  --neutral-ink: #4a463f;
+
+  --sidebar: #1f1d1a;
+  --sidebar-2: #2a2723;
+  --sidebar-fg: #e2ddd3;
+  --sidebar-muted: #a39c90;
+
+  --focus: #1f6fb2;
+  --overlay: rgb(20 18 16 / 0.55);
+  --shadow-color: 30 25 20;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141311;
+    --surface: #1c1b18;
+    --surface-2: #24221f;
+    --surface-3: #2d2a26;
+    --border: #35322c;
+    --border-strong: #4d4841;
+    --fg: #ece8e1;
+    --fg-muted: #b3aca0;
+    --fg-subtle: #8f887c;
+
+    --accent: #f5b133;
+    --accent-hover: #ffc355;
+    --accent-fg: #1a1400;
+    --accent-soft: #3a2c0e;
+    --accent-ink: #f5c265;
+
+    --info: #74b2ea;
+    --info-soft: #152b40;
+    --success: #62c28d;
+    --success-soft: #15301f;
+    --warning: #eaaa4c;
+    --warning-soft: #3a2a10;
+    --danger: #f07a6e;
+    --danger-soft: #3d1a16;
+    --danger-hover: #ff9589;
+    --neutral-soft: #2d2a26;
+    --neutral-ink: #cfc8bc;
+
+    --sidebar: #0e0d0c;
+    --sidebar-2: #1f1d1a;
+    --sidebar-fg: #e2ddd3;
+    --sidebar-muted: #938c80;
+
+    --focus: #74b2ea;
+    --overlay: rgb(0 0 0 / 0.65);
+    --shadow-color: 0 0 0;
+
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-hover: var(--danger-hover);
+  --color-neutral-soft: var(--neutral-soft);
+  --color-neutral-ink: var(--neutral-ink);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-2: var(--sidebar-2);
+  --color-sidebar-fg: var(--sidebar-fg);
+  --color-sidebar-muted: var(--sidebar-muted);
+
+  --color-focus: var(--focus);
+  --color-overlay: var(--overlay);
+
+  --shadow-card: 0 1px 0 rgb(var(--shadow-color) / 0.04), 0 1px 3px rgb(var(--shadow-color) / 0.06);
+  --shadow-pop: 0 12px 32px -8px rgb(var(--shadow-color) / 0.28), 0 2px 6px rgb(var(--shadow-color) / 0.1);
+}
+
+@theme {
+  --font-sans: 'IBM Plex Sans', 'Inter', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  --radius-ui: 0.375rem;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-bg text-fg font-sans antialiased;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+
+  /* WCAG 2.2 — 2.4.11/2.4.13: foco visible de al menos 2px con contraste suficiente. */
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--fg);
+  }
+
+  /* Sin flechas en inputs numéricos (chocan con sufijos de unidad y son poco útiles en táctil). */
+  input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  dialog::backdrop {
+    background: var(--overlay);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Etiqueta tipo rótulo de estantería: mayúsculas, espaciada. */
+  .label-stencil {
+    @apply font-mono text-[0.6875rem] font-semibold tracking-[0.12em] uppercase text-fg-subtle;
+  }
+
+  /* Franja de señalización (ámbar/grafito) para acentos puntuales. */
+  .hazard-stripe {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      var(--accent) 0 8px,
+      var(--sidebar) 8px 16px
+    );
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}

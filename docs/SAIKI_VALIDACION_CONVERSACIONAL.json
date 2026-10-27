@@ -1,0 +1,394 @@
+{
+  "python": "3.12.2",
+  "environment": "venv/saiki-tests-py312",
+  "suite_passed": 129,
+  "subtests_passed": 26,
+  "suite_failed": 0,
+  "type": "real_fastapi_asgi_jwt_and_response_rendering; mock_database_history_context_and_risk; real_lightgbm_forecast",
+  "mongodb_real_measured": false,
+  "ollama_inferences_executed": 0,
+  "requests": [
+    {
+      "question": "Hola Saiki.",
+      "answer": "¡Hola, soy Saiki!",
+      "tools": [],
+      "total_http_ms": 14.420899999095127,
+      "mongodb_real_ms": null,
+      "ollama_calls": 0,
+      "ollama_inference_ms": [],
+      "risk_mocked": true,
+      "history_context_mocked": true,
+      "lightgbm_models_real": false,
+      "result": "passed"
+    },
+    {
+      "question": "¿Cómo está mi inventario?",
+      "answer": "Actualmente tienes 1 producto distinto y 3 unidades registradas en tu inventario.",
+      "tools": [
+        {
+          "tool": "get_warehouse_status",
+          "duration_ms": 0.4102000002603745
+        }
+      ],
+      "total_http_ms": 9.965399998691282,
+      "mongodb_real_ms": null,
+      "ollama_calls": 0,
+      "ollama_inference_ms": [],
+      "risk_mocked": true,
+      "history_context_mocked": true,
+      "lightgbm_models_real": false,
+      "result": "passed"
+    },
+    {
+      "question": "¿Cuántos productos tengo?",
+      "answer": "Tienes 1 producto registrado en tu catálogo.",
+      "tools": [
+        {
+          "tool": "get_product",
+          "duration_ms": 0.5522999999811873
+        }
+      ],
+      "total_http_ms": 6.850800000393065,
+      "mongodb_real_ms": null,
+      "ollama_calls": 0,
+      "ollama_inference_ms": [],
+      "risk_mocked": true,
+      "history_context_mocked": true,
+      "lightgbm_models_real": false,
+      "result": "passed"
+    },
+    {
+      "question": "¿Tengo almacenes registrados?",
+      "answer": "Tienes 1 almacén registrado en PsiTwin.",
+      "tools": [
+        {
+          "tool": "get_warehouse_status",
+          "duration_ms": 0.34250000135216396
+        }
+      ],
+      "total_http_ms": 8.069299999988289,
+      "mongodb_real_ms": null,
+      "ollama_calls": 0,
+      "ollama_inference_ms": [],
+      "risk_mocked": true,
+      "history_context_mocked": true,
+      "lightgbm_models_real": false,
+      "result": "passed"
+    },
+    {
+      "question": "¿Cuánto stock tengo?",
+      "answer": "Actualmente tienes 3 unidades en tu inventario.",
+      "tools": [
+        {
+          "tool": "get_warehouse_status",
+          "duration_ms": 0.5161000008229166
+        }
+      ],
+      "total_http_ms": 9.175899998808745,
+      "mongodb_real_ms": null,
+      "ollama_calls": 0,
+      "ollama_inference_ms": [],
+      "risk_mocked": true,
+      "history_context_mocked": true,
+      "lightgbm_models_real": false,
+      "result": "passed"
+    },
+    {
+      "question": "¿Tengo alertas activas?",
+      "answer": "Tienes 1 alerta activa de riesgo alto. Puedes consultar los detalles en los datos adjuntos.",
+      "tools": [
+        {
+          "tool": "get_active_alerts",
+          "duration_ms": 0.23079999846231658
+        }
+      ],
+      "total_http_ms": 6.300799999735318,
+      "mongodb_real_ms": null,
+      "ollama_calls": 0,
+      "ollama_inference_ms": [],
+      "risk_mocked": true,
+      "history_context_mocked": true,
+      "lightgbm_models_real": false,
+      "result": "passed"
+    },
+    {
+      "question": "¿Qué movimientos recientes tengo?",
+      "answer": "Encontré un movimiento reciente: una salida de 2 unidades.",
+      "tools": [
+        {
+          "tool": "get_recent_movements",
+          "duration_ms": 0.35029999889957253
+        }
+      ],
+      "total_http_ms": 9.270399999877554,
+      "mongodb_real_ms": null,
+      "ollama_calls": 0,
+      "ollama_inference_ms": [],
+      "risk_mocked": true,
+      "history_context_mocked": true,
+      "lightgbm_models_real": false,
+      "result": "passed"
+    },
+    {
+      "question": "¿Dónde está el arroz?",
+      "answer": "Arroz está en el rack A01.",
+      "tools": [
+        {
+          "tool": "get_product",
+          "duration_ms": 0.31490000037592836
+        },
+        {
+          "tool": "get_warehouse_status",
+          "duration_ms": 0.26249999973515514
+        }
+      ],
+      "total_http_ms": 9.589300001607626,
+      "mongodb_real_ms": null,
+      "ollama_calls": 0,
+      "ollama_inference_ms": [],
+      "risk_mocked": true,
+      "history_context_mocked": true,
+      "lightgbm_models_real": false,
+      "result": "passed"
+    },
+    {
+      "question": "¿Qué productos podrían agotarse?",
+      "answer": "El riesgo de Arroz es crítico: la cobertura es de 1 día y la reposición tarda 2 días.",
+      "tools": [
+        {
+          "tool": "get_warehouse_status",
+          "duration_ms": 0.39029999970807694
+        },
+        {
+          "tool": "get_inventory_risk",
+          "duration_ms": 0.1757000009092735
+        }
+      ],
+      "total_http_ms": 7.431899999573943,
+      "mongodb_real_ms": null,
+      "ollama_calls": 0,
+      "ollama_inference_ms": [],
+      "risk_mocked": true,
+      "history_context_mocked": true,
+      "lightgbm_models_real": false,
+      "result": "passed"
+    },
+    {
+      "question": "¿Qué me recomiendas reponer?",
+      "answer": "La recomendación registrada propone reponer 5 unidades. Revisa el producto y los detalles antes de iniciar una compra.",
+      "tools": [
+        {
+          "tool": "get_recommendations",
+          "duration_ms": 0.2843000002030749
+        }
+      ],
+      "total_http_ms": 10.267500001646113,
+      "mongodb_real_ms": null,
+      "ollama_calls": 0,
+      "ollama_inference_ms": [],
+      "risk_mocked": true,
+      "history_context_mocked": true,
+      "lightgbm_models_real": false,
+      "result": "passed"
+    },
+    {
+      "question": "¿Cuál será la demanda de la próxima semana?",
+      "answer": "La demanda estimada para los próximos 7 días es de 1.042 unidades. Faltan datos de algunas variables, por lo que es una estimación con limitaciones, no una proyección de stock futuro.",
+      "tools": [
+        {
+          "tool": "get_warehouse_status",
+          "duration_ms": 0.31010000020614825
+        },
+        {
+          "tool": "get_forecast",
+          "duration_ms": 841.8387999990955
+        }
+      ],
+      "total_http_ms": 850.2283999987412,
+      "mongodb_real_ms": null,
+      "ollama_calls": 0,
+      "ollama_inference_ms": [],
+      "risk_mocked": true,
+      "history_context_mocked": true,
+      "lightgbm_models_real": true,
+      "result": "passed"
+    },
+    {
+      "question": "Explícame el riesgo de desabastecimiento.",
+      "answer": "El riesgo de Arroz es crítico: la cobertura es de 1 día y la reposición tarda 2 días.",
+      "tools": [
+        {
+          "tool": "get_warehouse_status",
+          "duration_ms": 0.5375000000640284
+        },
+        {
+          "tool": "get_inventory_risk",
+          "duration_ms": 0.2886000002035871
+        }
+      ],
+      "total_http_ms": 12.280000000828295,
+      "mongodb_real_ms": null,
+      "ollama_calls": 0,
+      "ollama_inference_ms": [],
+      "risk_mocked": true,
+      "history_context_mocked": true,
+      "lightgbm_models_real": false,
+      "result": "passed"
+    },
+    {
+      "question": "¿Cómo vamos de inventario?",
+      "answer": "Actualmente tienes 1 producto distinto y 3 unidades registradas en tu inventario.",
+      "tools": [
+        {
+          "tool": "get_warehouse_status",
+          "duration_ms": 0.5474999998114072
+        }
+      ],
+      "total_http_ms": 12.662399998589535,
+      "mongodb_real_ms": null,
+      "ollama_calls": 0,
+      "ollama_inference_ms": [],
+      "risk_mocked": true,
+      "history_context_mocked": true,
+      "lightgbm_models_real": false,
+      "result": "passed"
+    },
+    {
+      "question": "Dime cómo está el almacén.",
+      "answer": "Actualmente tienes 1 producto distinto y 3 unidades registradas en tu inventario.",
+      "tools": [
+        {
+          "tool": "get_warehouse_status",
+          "duration_ms": 0.3789000002143439
+        }
+      ],
+      "total_http_ms": 11.287400000583148,
+      "mongodb_real_ms": null,
+      "ollama_calls": 0,
+      "ollama_inference_ms": [],
+      "risk_mocked": true,
+      "history_context_mocked": true,
+      "lightgbm_models_real": false,
+      "result": "passed"
+    },
+    {
+      "question": "¿Qué productos me quedan?",
+      "answer": "Quedan 3 unidades de Arroz.",
+      "tools": [
+        {
+          "tool": "get_warehouse_status",
+          "duration_ms": 0.32559999999648426
+        }
+      ],
+      "total_http_ms": 9.226800000760704,
+      "mongodb_real_ms": null,
+      "ollama_calls": 0,
+      "ollama_inference_ms": [],
+      "risk_mocked": true,
+      "history_context_mocked": true,
+      "lightgbm_models_real": false,
+      "result": "passed"
+    },
+    {
+      "question": "¿Hay alguna alerta?",
+      "answer": "Tienes 1 alerta activa de riesgo alto. Puedes consultar los detalles en los datos adjuntos.",
+      "tools": [
+        {
+          "tool": "get_active_alerts",
+          "duration_ms": 0.2722999997786246
+        }
+      ],
+      "total_http_ms": 10.041999999884865,
+      "mongodb_real_ms": null,
+      "ollama_calls": 0,
+      "ollama_inference_ms": [],
+      "risk_mocked": true,
+      "history_context_mocked": true,
+      "lightgbm_models_real": false,
+      "result": "passed"
+    },
+    {
+      "question": "Muéstrame las últimas salidas.",
+      "answer": "Encontré 1 salida entre los movimientos recientes consultados.",
+      "tools": [
+        {
+          "tool": "get_recent_movements",
+          "duration_ms": 0.3450999993219739
+        }
+      ],
+      "total_http_ms": 9.05609999972512,
+      "mongodb_real_ms": null,
+      "ollama_calls": 0,
+      "ollama_inference_ms": [],
+      "risk_mocked": true,
+      "history_context_mocked": true,
+      "lightgbm_models_real": false,
+      "result": "passed"
+    },
+    {
+      "question": "¿Qué debería comprar?",
+      "answer": "La recomendación registrada propone reponer 5 unidades. Revisa el producto y los detalles antes de iniciar una compra.",
+      "tools": [
+        {
+          "tool": "get_recommendations",
+          "duration_ms": 0.21850000121048652
+        }
+      ],
+      "total_http_ms": 6.95360000099754,
+      "mongodb_real_ms": null,
+      "ollama_calls": 0,
+      "ollama_inference_ms": [],
+      "risk_mocked": true,
+      "history_context_mocked": true,
+      "lightgbm_models_real": false,
+      "result": "passed"
+    },
+    {
+      "question": "¿Qué se va a agotar?",
+      "answer": "El riesgo de Arroz es crítico: la cobertura es de 1 día y la reposición tarda 2 días.",
+      "tools": [
+        {
+          "tool": "get_warehouse_status",
+          "duration_ms": 0.3057000012631761
+        },
+        {
+          "tool": "get_inventory_risk",
+          "duration_ms": 0.1236000007338589
+        }
+      ],
+      "total_http_ms": 6.454099999245955,
+      "mongodb_real_ms": null,
+      "ollama_calls": 0,
+      "ollama_inference_ms": [],
+      "risk_mocked": true,
+      "history_context_mocked": true,
+      "lightgbm_models_real": false,
+      "result": "passed"
+    },
+    {
+      "question": "¿Qué demanda tendremos en 7 días?",
+      "answer": "La demanda estimada para los próximos 7 días es de 1.042 unidades. Faltan datos de algunas variables, por lo que es una estimación con limitaciones, no una proyección de stock futuro.",
+      "tools": [
+        {
+          "tool": "get_warehouse_status",
+          "duration_ms": 0.3151000000798376
+        },
+        {
+          "tool": "get_forecast",
+          "duration_ms": 441.9947000005777
+        }
+      ],
+      "total_http_ms": 449.9321000002965,
+      "mongodb_real_ms": null,
+      "ollama_calls": 0,
+      "ollama_inference_ms": [],
+      "risk_mocked": true,
+      "history_context_mocked": true,
+      "lightgbm_models_real": true,
+      "result": "passed"
+    }
+  ],
+  "suite_skipped": 1,
+  "suite_seconds": 19.22,
+  "mongodb_ping_real_ms": 57.77
+}

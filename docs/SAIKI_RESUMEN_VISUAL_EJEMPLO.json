@@ -1,0 +1,55 @@
+{
+  "_nota": "Ejemplo sintético reducido: no son datos reales. La respuesta real conserva también model y base_url.",
+  "answer": "Actualmente tienes 1 producto diferente y 120 unidades distribuidas en 1 almacén.",
+  "source": "backend",
+  "context": {},
+  "data": {
+    "inventory_summary": {
+      "distinct_products": 1,
+      "total_units": 120,
+      "warehouse_count": 1,
+      "catalog_products": 1,
+      "inventory_state": "stock_positivo",
+      "rows": [
+        {
+          "id_producto": "synthetic-product",
+          "product_name": "Arroz",
+          "stock": 120,
+          "id_almacen": "synthetic-warehouse",
+          "warehouse_name": "Principal",
+          "id_zona": "synthetic-zone",
+          "zone_name": "A",
+          "id_rack": "synthetic-rack",
+          "rack_name": "A01",
+          "inventory_ids": ["synthetic-inventory"],
+          "status_label": "Disponible"
+        }
+      ],
+      "pagination": {"page": 1, "page_size": 25, "total_rows": 1, "total_pages": 1}
+    }
+  },
+  "visualization": {
+    "type": "inventory_summary",
+    "version": 1,
+    "title": "Resumen de inventario",
+    "cards": [
+      {"label": "Productos", "value_path": "data.inventory_summary.distinct_products"},
+      {"label": "Unidades", "value_path": "data.inventory_summary.total_units"},
+      {"label": "Almacenes", "value_path": "data.inventory_summary.warehouse_count"}
+    ],
+    "table": {
+      "rows_path": "data.inventory_summary.rows",
+      "columns": [
+        {"key": "product_name", "label": "Producto"},
+        {"key": "stock", "label": "Stock"},
+        {"key": "warehouse_name", "label": "Almacén"},
+        {"key": "zone_name", "label": "Zona"},
+        {"key": "rack_name", "label": "Rack"},
+        {"key": "status_label", "label": "Estado"}
+      ],
+      "pagination_path": "data.inventory_summary.pagination"
+    }
+  },
+  "sources": ["INVENTARIO"],
+  "warnings": []
+}

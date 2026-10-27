@@ -1,0 +1,53 @@
+# Blueprint de Render para API y frontend (monorepo).
+# Uso: Render → New → Blueprint → conectar repo → detecta este archivo.
+services:
+  - type: web
+    name: psitwin-backend
+    runtime: docker
+    plan: free
+    region: oregon
+    branch: main
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: MONGODB_URL
+        sync: false
+      - key: MONGODB_DATABASE
+        value: psitwin_inventory
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      - key: CORS_ORIGINS
+        sync: false # URL HTTPS real del frontend, sin barra final.
+      - key: FRONTEND_URL
+        sync: false # La misma URL pública del frontend.
+      - key: EMAIL_ENABLED
+        value: "false"
+      # Sin broker MQTT en la nube todavía. Al desplegar Mosquitto,
+      # cambiar a true y definir MQTT_HOST/PORT/USER/PASSWORD.
+      - key: MQTT_ENABLED
+        value: "false"
+      - key: OLLAMA_BASE_URL
+        value: http://localhost:11434
+      - key: OLLAMA_MODEL
+        value: qwen3:4b
+
+  - type: web
+    name: psitwin-frontend
+    runtime: static
+    branch: main
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: NODE_VERSION
+        value: "22.22.2"
+      - key: VITE_API_URL
+        sync: false # https://<nombre-real-del-backend>.onrender.com/api/v1
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
