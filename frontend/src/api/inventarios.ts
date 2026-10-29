@@ -1,7 +1,8 @@
 /**
  * Inventarios (stock real por producto y rack).
- *   POST /inventarios · GET /inventarios · GET /inventarios/stock-bajo · GET /inventarios/sin-stock
- *   GET /inventarios/sobre-stock · GET /inventarios/producto/{id_producto}
+ *   Listados de existencias: GET /detalles-inventario y sus filtros
+ *   /stock-bajo, /sin-stock, /sobre-stock, /producto/{id_producto}.
+ *   GET /inventarios devuelve cabeceras de almacén, no filas de stock.
  *   GET /detalles-inventario/rack/{id_rack} (stock por ubicación, esquema v2)
  *   GET /inventarios/{id} · PUT /inventarios/{id} · DELETE /inventarios/{id}
  *
@@ -19,12 +20,12 @@ import type { Inventario, InventarioCreate, InventarioHistorial, InventarioUpdat
 
 export const inventariosApi = {
   create: async (body: InventarioCreate): Promise<Inventario> => norm.inventario.one(await api.post('/inventarios', body)),
-  list: async (): Promise<Inventario[]> => norm.inventario.list(await api.get('/inventarios')),
-  listStockBajo: async (): Promise<Inventario[]> => norm.inventario.list(await api.get('/inventarios/stock-bajo')),
-  listSinStock: async (): Promise<Inventario[]> => norm.inventario.list(await api.get('/inventarios/sin-stock')),
-  listSobreStock: async (): Promise<Inventario[]> => norm.inventario.list(await api.get('/inventarios/sobre-stock')),
+  list: async (): Promise<Inventario[]> => norm.inventario.list(await api.get('/detalles-inventario')),
+  listStockBajo: async (): Promise<Inventario[]> => norm.inventario.list(await api.get('/detalles-inventario/stock-bajo')),
+  listSinStock: async (): Promise<Inventario[]> => norm.inventario.list(await api.get('/detalles-inventario/sin-stock')),
+  listSobreStock: async (): Promise<Inventario[]> => norm.inventario.list(await api.get('/detalles-inventario/sobre-stock')),
   listByProducto: async (idProducto: string): Promise<Inventario[]> =>
-    norm.inventario.list(await api.get(`/inventarios/producto/${seg(idProducto)}`)),
+    norm.inventario.list(await api.get(`/detalles-inventario/producto/${seg(idProducto)}`)),
   listByRack: async (idRack: string): Promise<Inventario[]> =>
     norm.inventario.list(await api.get(`/detalles-inventario/rack/${seg(idRack)}`)),
   get: async (id: string): Promise<Inventario> => norm.inventario.one(await api.get(`/inventarios/${seg(id)}`)),

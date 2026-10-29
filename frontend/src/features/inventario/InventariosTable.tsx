@@ -120,7 +120,7 @@ export function InventariosTable({ data, caption, loading, error, onRetry, empty
         error={error}
         {...(onRetry ? { onRetry } : {})}
         empty={empty}
-        rowKey={(inv) => inv.id_inventario}
+        rowKey={(inv) => inv.id_detalle_inventario ?? inv.id_inventario}
         columns={columnas}
         actions={(inv) => (
           <>
