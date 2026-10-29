@@ -1,4 +1,3 @@
-import { WarehouseMapSelector } from '@/features/almacenes/WarehouseMap'
 /**
  * Inicio / dashboard: almacenes de la empresa (tarjetas) + resumen de alertas de inventario.
  * Los contadores usan GET /inventarios acotado a la empresa con useUbicaciones().perteneceAEmpresa.
@@ -17,8 +16,7 @@ import { formatCoordenadas, formatNumero } from '@/lib/format'
 import { resumenStock } from '@/lib/stock'
 import { paths } from '@/paths'
 import { AlmacenFormModal, EliminarAlmacenDialog } from './AlmacenDialogs'
-import PlanoImagen from '@/assets/PlanoImagen.jpeg'
-
+import { GeneradorPlano } from './GeneradorPlano'
 
 export default function InicioPage() {
   const { empresa } = useEmpresa()
@@ -59,7 +57,6 @@ export default function InicioPage() {
       />
 
       <ResumenAlertas />
-      <WarehouseMapSelector />
 
       <section aria-labelledby="titulo-almacenes" className="mt-8">
         <div className="mb-3 flex items-baseline justify-between gap-3">
@@ -100,15 +97,8 @@ export default function InicioPage() {
         )}
       </section>
 
-      <figure className="mt-8 overflow-hidden rounded-[calc(var(--radius-ui)+2px)] border border-border bg-surface shadow-card">
-        <img
-          src={PlanoImagen}
-          alt="Plano del almacén"
-          className="h-auto w-full object-contain"
-          loading="lazy"
-        />
-      </figure>
-      
+      <GeneradorPlano areaInicial={almacenes[0]?.area_m2} />
+
       <AlmacenFormModal open={formAbierto} almacen={aEditar} onClose={() => setFormAbierto(false)} />
       <EliminarAlmacenDialog almacen={aEliminar} esUltimo={almacenes.length === 1} onClose={() => setAEliminar(null)} />
     </>
