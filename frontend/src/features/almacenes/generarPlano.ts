@@ -13,7 +13,6 @@ export interface PlanoParams {
   congeladores: number
   cajas: number
   conAlmacen: boolean
-  conBano: boolean
   /** Estantes pegados a las paredes + mesas de frutas y verduras. */
   estantesPared: boolean
 }
@@ -96,10 +95,9 @@ export function generarPlano(p: PlanoParams): Plano {
   const nCaja = Math.max(0, Math.floor(p.cajas))
   const pared = p.estantesPared
 
-  const hayBanda = p.conAlmacen || p.conBano || nFr0 > 0 || nCo0 > 0
+  const hayBanda = p.conAlmacen || nFr0 > 0 || nCo0 > 0
   const D = hayBanda ? clamp(H * 0.2, 3, 5) : 0
   const aw = p.conAlmacen ? clamp(W * 0.2, 3, 8) : 0
-  const bw = p.conBano ? clamp(W * 0.1, 2, 3.2) : 0
 
   /* ---------------- Paredes exteriores y entrada ---------------- */
   const gap = 2.4
@@ -127,20 +125,6 @@ export function generarPlano(p: PlanoParams): Plano {
     celdas(0.4, 1.2, 0.75, hv, 2, false)
     rect(aw - 1.0, 0.4, 0.6, 0.6)
     text(aw * 0.58, D * 0.52, 'Almacén')
-  }
-
-  /* ---------------- Baño ---------------- */
-  if (p.conBano) {
-    const bx = W - bw
-    const r = 0.9
-    path(`M ${bx} 0 L ${bx} ${D}`, true)
-    path(`M ${bx + r} ${D} L ${W} ${D}`, true)
-    path(`M ${bx} ${D} L ${bx} ${D - r}`)
-    path(`M ${bx + r} ${D} A ${r} ${r} 0 0 0 ${bx} ${D - r}`)
-    rect(W - 0.95, 0.35, 0.7, 0.3)
-    els.push({ t: 'ellipse', cx: W - 0.6, cy: 1.1, rx: 0.3, ry: 0.42 })
-    els.push({ t: 'ellipse', cx: W - 0.6, cy: 2.2, rx: 0.3, ry: 0.4 })
-    text(bx + 0.25, 1.35, 'Baño', 'start')
   }
 
   /* ---------------- Franja superior: refrigeradoras y congeladores ---------------- */
@@ -316,7 +300,6 @@ export function generarPlano(p: PlanoParams): Plano {
   if (nFr > 0) add('Refrigeradores')
   if (nCo > 0) add('Congeladores')
   if (p.conAlmacen) add('Almacén')
-  if (p.conBano) add('Baño')
 
   const legW = fs * 18
   const legH = fs * (2.9 + 1.75 * items.length)
