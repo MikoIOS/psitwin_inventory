@@ -103,7 +103,10 @@ export default function MonitoreoPage() {
                         </div>
                         <ValoresVivos dispositivo={d} estado={estado} rack={rack} ahora={ahora} />
                         {alertas.length > 0 && (
-                          <ul className="flex flex-col gap-1 border-t border-border pt-2 text-xs text-danger">
+                          <ul
+                            aria-label={`Alertas de ${d.nombre}`}
+                            className="flex max-h-32 flex-col gap-1 overflow-y-auto overscroll-contain border-t border-border pt-2 pr-2 text-xs text-danger [scrollbar-gutter:stable]"
+                          >
                             {alertas.map((a) => (
                               <li key={a.id_alerta}>● {etiquetaAlerta(a.tipo_alerta)}</li>
                             ))}

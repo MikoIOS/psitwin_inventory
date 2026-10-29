@@ -113,46 +113,53 @@ export default function DispositivoDetallePage() {
           title="Alertas"
           description={esEmpresa ? 'Una alerta por episodio. Se resuelven solas cuando el valor vuelve al rango.' : 'Alertas abiertas. Se resuelven solas cuando el valor vuelve al rango.'}
         >
-          <DataTable<Alerta>
-            caption="Alertas del dispositivo"
-            data={alertas}
-            loading={historialQ.isLoading}
-            rowKey={(a) => a.id_alerta}
-            empty={<EmptyState compact icon="check-circle" title="Sin alertas" description="Este dispositivo no tiene alertas." />}
-            columns={[
-              { id: 'tipo', header: 'Alerta', mobile: 'title', cell: (a) => etiquetaAlerta(a.tipo_alerta) },
-              { id: 'estado', header: 'Estado', mobile: 'badge', cell: (a) => <StatusBadge estado={a.estado} /> },
-              { id: 'inicio', header: 'Inicio', cell: (a) => formatFechaHora(new Date(ms(a.inicio ?? a.fecha_creacion))) },
-              {
-                id: 'duracion',
-                header: 'Duración',
-                cell: (a) => (a.duracion_s != null ? duracion(a.duracion_s) : a.inicio && !a.fin ? `${duracion((ahora - ms(a.inicio)) / 1000)} (en curso)` : '—'),
-              },
-              {
-                id: 'valor',
-                header: 'Valor / límite',
-                cell: (a) => (a.valor_extremo ?? a.valor) != null ? `${formatNumero(a.valor_extremo ?? a.valor)}${a.limite != null ? ` (límite ${formatNumero(a.limite)})` : ''}` : '—',
-              },
-              { id: 'mensaje', header: 'Detalle', mobile: 'hidden', cell: (a) => a.mensaje ?? '—' },
-            ]}
-            actions={(a) =>
-              a.estado === 'ACTIVA' || a.estado === 'ABIERTA' ? (
-                <Button
-                  size="sm"
-                  icon="check"
-                  loading={atender.isPending && atender.variables === a.id_alerta}
-                  onClick={() =>
-                    atender.mutate(a.id_alerta, {
-                      onSuccess: () => toast.success('Alerta marcada como atendida.'),
-                      onError: (e) => handleError(e, { title: 'No se pudo atender la alerta' }),
-                    })
-                  }
-                >
-                  Atender
-                </Button>
-              ) : null
-            }
-          />
+          <div
+            role="region"
+            aria-label={`Alertas de ${d.nombre}`}
+            tabIndex={0}
+            className="max-h-[min(28rem,60vh)] overflow-auto overscroll-contain rounded-[var(--radius-ui)] focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 [scrollbar-gutter:stable]"
+          >
+            <DataTable<Alerta>
+              caption="Alertas del dispositivo"
+              data={alertas}
+              loading={historialQ.isLoading}
+              rowKey={(a) => a.id_alerta}
+              empty={<EmptyState compact icon="check-circle" title="Sin alertas" description="Este dispositivo no tiene alertas." />}
+              columns={[
+                { id: 'tipo', header: 'Alerta', mobile: 'title', cell: (a) => etiquetaAlerta(a.tipo_alerta) },
+                { id: 'estado', header: 'Estado', mobile: 'badge', cell: (a) => <StatusBadge estado={a.estado} /> },
+                { id: 'inicio', header: 'Inicio', cell: (a) => formatFechaHora(new Date(ms(a.inicio ?? a.fecha_creacion))) },
+                {
+                  id: 'duracion',
+                  header: 'Duración',
+                  cell: (a) => (a.duracion_s != null ? duracion(a.duracion_s) : a.inicio && !a.fin ? `${duracion((ahora - ms(a.inicio)) / 1000)} (en curso)` : '—'),
+                },
+                {
+                  id: 'valor',
+                  header: 'Valor / límite',
+                  cell: (a) => (a.valor_extremo ?? a.valor) != null ? `${formatNumero(a.valor_extremo ?? a.valor)}${a.limite != null ? ` (límite ${formatNumero(a.limite)})` : ''}` : '—',
+                },
+                { id: 'mensaje', header: 'Detalle', mobile: 'hidden', cell: (a) => a.mensaje ?? '—' },
+              ]}
+              actions={(a) =>
+                a.estado === 'ACTIVA' || a.estado === 'ABIERTA' ? (
+                  <Button
+                    size="sm"
+                    icon="check"
+                    loading={atender.isPending && atender.variables === a.id_alerta}
+                    onClick={() =>
+                      atender.mutate(a.id_alerta, {
+                        onSuccess: () => toast.success('Alerta marcada como atendida.'),
+                        onError: (e) => handleError(e, { title: 'No se pudo atender la alerta' }),
+                      })
+                    }
+                  >
+                    Atender
+                  </Button>
+                ) : null
+              }
+            />
+          </div>
         </Card>
 
         <Card
