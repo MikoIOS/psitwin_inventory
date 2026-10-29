@@ -16,6 +16,7 @@ import { formatCoordenadas, formatNumero } from '@/lib/format'
 import { resumenStock } from '@/lib/stock'
 import { paths } from '@/paths'
 import { AlmacenFormModal, EliminarAlmacenDialog } from './AlmacenDialogs'
+import PlanoImagen from '@/assets/PlanoImagen.jpeg'
 
 export default function InicioPage() {
   const { empresa } = useEmpresa()
@@ -96,6 +97,15 @@ export default function InicioPage() {
         )}
       </section>
 
+      <figure className="mt-8 overflow-hidden rounded-[calc(var(--radius-ui)+2px)] border border-border bg-surface shadow-card">
+        <img
+          src={PlanoImagen}
+          alt="Plano del almacén"
+          className="h-auto w-full object-contain"
+          loading="lazy"
+        />
+      </figure>
+      
       <AlmacenFormModal open={formAbierto} almacen={aEditar} onClose={() => setFormAbierto(false)} />
       <EliminarAlmacenDialog almacen={aEliminar} esUltimo={almacenes.length === 1} onClose={() => setAEliminar(null)} />
     </>
