@@ -15,7 +15,6 @@ export function GeneradorPlano({ areaInicial }: { areaInicial?: number | undefin
   const [congel, setCongel] = useState('1')
   const [cajas, setCajas] = useState('1')
   const [conAlmacen, setConAlmacen] = useState(true)
-  const [conBano, setConBano] = useState(true)
   const [estantesPared, setEstantesPared] = useState(true)
   const svgRef = useRef<SVGSVGElement>(null)
 
@@ -31,10 +30,9 @@ export function GeneradorPlano({ areaInicial }: { areaInicial?: number | undefin
         congeladores: num(congel, 20),
         cajas: num(cajas, 10),
         conAlmacen,
-        conBano,
         estantesPared,
       }),
-    [areaNum, estantes, refri, congel, cajas, conAlmacen, conBano, estantesPared],
+    [areaNum, estantes, refri, congel, cajas, conAlmacen, estantesPared],
   )
 
   const { viewBox: vb, leyenda: ley, fs, sw, wallSw } = plano
@@ -118,7 +116,6 @@ export function GeneradorPlano({ areaInicial }: { areaInicial?: number | undefin
 
       <div className="mt-4 flex flex-wrap gap-x-6 gap-y-3">
         <Checkbox label="Almacén" checked={conAlmacen} onChange={(e) => setConAlmacen(e.target.checked)} />
-        <Checkbox label="Baño" checked={conBano} onChange={(e) => setConBano(e.target.checked)} />
         <Checkbox label="Estantes en las paredes" checked={estantesPared} onChange={(e) => setEstantesPared(e.target.checked)} />
       </div>
 
