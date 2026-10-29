@@ -1,0 +1,4 @@
+# Optional local STT only; browser recognition needs no Python voice packages.
+# Retains the existing CPU/int8 Whisper worker without installing Kokoro/Torch.
+faster-whisper>=1.1,<2
+numpy>=1.26,<2.4

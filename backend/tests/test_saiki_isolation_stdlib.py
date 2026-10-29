@@ -16,6 +16,7 @@ from uuid import uuid4
 import unittest
 
 from app.services.saiki_intent_router import SaikiIntentRouter
+from app.services.saiki_grounding import public_evidence
 from app.services.saiki_responses import operational_answer, forecast_answer, risk_answer
 
 
@@ -38,10 +39,10 @@ def isolated_service():
     ast.fix_missing_locations(module)
     namespace = {
         "__file__": str(ROOT / "app/services/saiki_service.py"),
-        "asyncio": asyncio, "time": time, "hashlib": hashlib, "json": json, "re": re,
+        "public_evidence": public_evidence, "asyncio": asyncio, "time": time, "hashlib": hashlib, "json": json, "re": re,
         "uuid4": uuid4, "logger": logging.getLogger(__name__),
         "SaikiIntentRouter": SaikiIntentRouter, "SaikiToolRegistry": SimpleNamespace,
-        "get_settings": lambda: SimpleNamespace(ollama_model="test", ollama_base_url="test"),
+        "get_settings": lambda: SimpleNamespace(ollama_model="test", ollama_base_url="test", saiki_request_timeout_seconds=2, saiki_database_timeout_seconds=1, saiki_idle_timeout_seconds=1, saiki_model_start_timeout_seconds=1, ollama_connect_timeout_seconds=1),
         "HTTPException": HttpError, "PyMongoError": DatabaseError,
         "status": SimpleNamespace(HTTP_503_SERVICE_UNAVAILABLE=503, HTTP_500_INTERNAL_SERVER_ERROR=500, HTTP_504_GATEWAY_TIMEOUT=504),
         "SAIKI_SYSTEM_PROMPT": "test",
@@ -52,14 +53,18 @@ def isolated_service():
 
 
 def request(message):
-    return SimpleNamespace(message=message, history=[], context={}, id_inventario=None, id_producto=None, horizonte_dias=7, model_fields_set=set())
+    return SimpleNamespace(
+        message=message, history=[], context={}, id_inventario=None,
+        id_producto=None, id_almacen=None, id_dispositivo=None,
+        sensor_horas=24, horizonte_dias=7, model_fields_set=set(),
+    )
 
 
 CONVERSATIONAL_CASES = [
     ("Hola Saiki.", None),
     ("¿Cómo está mi inventario?", "get_warehouse_status"),
     ("¿Cuántos productos tengo?", "get_product"),
-    ("¿Tengo almacenes?", "get_warehouse_status"),
+    ("¿Tengo almacenes?", "get_locations"),
     ("¿Cuánto stock tengo?", "get_warehouse_status"),
     ("¿Dónde está el arroz?", "get_product"),
     ("¿Qué movimientos recientes tengo?", "get_recent_movements"),
@@ -82,11 +87,13 @@ def conversational_measurements():
             started = time.perf_counter()
             calls.append(name)
             result = summary if name == "get_warehouse_status" else []
+            if name == 'get_locations':
+                result = {'total_almacenes': 1, 'total_zonas': 0, 'total_racks': 0, 'almacenes': []}
             if name == "get_forecast":
                 result = {"estado":"DISPONIBLE","demanda_total_estimada":7,"horizonte_dias":7}
             if name == "get_inventory_risk":
                 result = {"riesgo": {"nivel": "BAJO"}, "stock_actual": 3}
-            source = "LIGHTGBM" if name == "get_forecast" else "INVENTARIO"
+            source = "AUTOGLUON" if name == "get_forecast" else "INVENTARIO"
             tool_times.append((time.perf_counter() - started) * 1000)
             return result, source
         def ollama(messages, names=None):
@@ -115,7 +122,7 @@ def isolated_registry(access):
     cls.body = [node for node in cls.body if isinstance(node, ast.AsyncFunctionDef) and node.name in names]
     module = ast.Module(body=[ast.ImportFrom(module="__future__", names=[ast.alias(name="annotations")], level=0), cls], type_ignores=[])
     ast.fix_missing_locations(module)
-    namespace = {"AccesoService": access, "time": time, "logger": logging.getLogger(__name__)}
+    namespace = {"AccesoService": access, "time": time, "asyncio": asyncio, "logger": logging.getLogger(__name__)}
     exec(compile(module, "saiki_tools.py", "exec"), namespace)
     return namespace["SaikiToolRegistry"]()
 
@@ -140,7 +147,12 @@ class RequestScopeTests(unittest.TestCase):
             async def products():
                 await asyncio.sleep(0)
                 return [{"id_producto": "A-product", "id_empresa": "A"}, {"id_producto": "B-product", "id_empresa": "B"}]
-            registry.get_product.__func__.__globals__["ProductoRepository"] = SimpleNamespace(obtener_todos=products)
+            class ProductCursor:
+                def __init__(self, query): self.query = query
+                async def to_list(self, length=None):
+                    return [p for p in await products() if p['id_empresa'] == self.query['id_empresa']]
+            registry.get_product.__func__.__globals__["ProductoRepository"] = SimpleNamespace(
+                collection=lambda: SimpleNamespace(find=lambda query, projection: ProductCursor(query)))
             class Args:
                 @staticmethod
                 def model_validate(arguments):
@@ -187,7 +199,7 @@ class RequestScopeTests(unittest.TestCase):
         registry = isolated_registry(Access)
         calls = 0
 
-        async def query():
+        async def query(*args):
             nonlocal calls
             calls += 1
             if calls == 1:
@@ -195,39 +207,45 @@ class RequestScopeTests(unittest.TestCase):
                 await second_query.wait()
             else:
                 second_query.set()
-            return [{"id_inventario": company + "-inv", "id_producto": company + "-product", "id_rack": company + "-rack", "stock_actual": 1} for company in ("A", "B")] if tool == "get_warehouse_status" else [{"id_inventario": "A-inv"}, {"id_inventario": "B-inv"}]
+            if tool == 'get_warehouse_status':
+                return [{"id_inventario": company + "-inv", "id_producto": company + "-product", "id_rack": company + "-rack", "stock_actual": 1} for company in ("A", "B")]
+            return [{'id_inventario': args[0], **({'estado': 'ACTIVA'} if tool == 'get_active_alerts' else {})}]
 
         class Args:
             @staticmethod
             def model_validate(arguments):
                 return SimpleNamespace(id_inventario=None)
 
-        registry.alerta_service = SimpleNamespace(listar_activas=query)
-        registry.recomendacion_service = SimpleNamespace(listar=query)
-        registry.movimiento_service = SimpleNamespace(obtener_movimientos=query)
+        registry.alerta_service = SimpleNamespace(listar_por_inventario=query)
+        async def active_for_company(company): return await query(company + '-inv')
+        registry.alerta_service.listar_activas_por_empresa = active_for_company
+        registry.recomendacion_service = SimpleNamespace(listar_por_inventario=query)
+        registry.movimiento_service = SimpleNamespace(obtener_por_inventario=query)
         registry.inventario_service = SimpleNamespace(obtener_inventarios=query)
-        async def warehouses():
+        async def warehouses(*args):
             return [{"id_almacen": c + "-warehouse"} for c in ("A", "B")]
-        async def zones():
+        async def zones(*args):
             return [{"id_zona": c + "-zone", "id_almacen": c + "-warehouse"} for c in ("A", "B")]
-        async def racks():
+        async def racks(*args):
             return [{"id_rack": c + "-rack", "id_zona": c + "-zone"} for c in ("A", "B")]
         async def products():
             return [{"id_producto": c + "-product", "id_empresa": c} for c in ("A", "B")]
         namespace = registry.get_warehouse_status.__func__.__globals__
-        namespace["DetalleInventarioRepository"] = lambda: SimpleNamespace(obtener_todos=query)
-        namespace.update(AlmacenRepository=SimpleNamespace(obtener_todos=warehouses), ZonaRepository=SimpleNamespace(obtener_todas=zones), RackRepository=SimpleNamespace(obtener_todos=racks), ProductoRepository=SimpleNamespace(obtener_todos=products))
+        namespace["DetalleInventarioRepository"] = lambda: SimpleNamespace(obtener_por_racks=query)
+        class ProductCursor:
+            async def to_list(self, length=None): return await products()
+        namespace.update(AlmacenRepository=SimpleNamespace(obtener_por_empresa=warehouses), ZonaRepository=SimpleNamespace(obtener_por_almacenes=zones), RackRepository=SimpleNamespace(obtener_por_zonas=racks), ProductoRepository=SimpleNamespace(collection=lambda: SimpleNamespace(find=lambda *args: ProductCursor())))
         registry._handlers = {tool: (Args, getattr(registry, tool), "SOURCE")}
         first = asyncio.create_task(registry.execute(tool, {}, SimpleNamespace(id_empresa="A")))
-        await first_query.wait()
+        await asyncio.wait_for(first_query.wait(), timeout=2)
         second = asyncio.create_task(registry.execute(tool, {}, SimpleNamespace(id_empresa="B")))
         result_a, result_b = await asyncio.wait_for(asyncio.gather(first, second), timeout=2)
         if tool == "get_warehouse_status":
             self.assertEqual([item["id_inventario"] for item in result_a[0]["inventarios"]], ["A-inv"])
             self.assertEqual([item["id_inventario"] for item in result_b[0]["inventarios"]], ["B-inv"])
         else:
-            self.assertEqual(result_a[0], [{"id_inventario": "A-inv"}])
-            self.assertEqual(result_b[0], [{"id_inventario": "B-inv"}])
+            self.assertEqual([r['id_inventario'] for r in result_a[0]], ['A-inv'])
+            self.assertEqual([r['id_inventario'] for r in result_b[0]], ['B-inv'])
         self.assertFalse(hasattr(registry, "_visible_inventory_ids"))
 
     def test_authorization_rejects_foreign_inventory_before_handler(self):
@@ -305,10 +323,10 @@ class RackRegressionTests(unittest.TestCase):
 
 
 class ResponseTests(unittest.TestCase):
-    def test_missing_forecast_features_are_disclosed(self):
+    def test_forecast_uncertainty_and_stock_distinction_are_disclosed(self):
         service, _ = isolated_service()
-        warnings = service._warnings({"LIGHTGBM"}, {"get_forecast": {"features_por_horizonte": {"D+1": {"sin_datos": 2}}}})
-        self.assertTrue(any("variables sin datos" in item for item in warnings))
+        warnings = service._warnings({"AUTOGLUON"})
+        self.assertTrue(any("incertidumbre" in item and "no stock futuro" in item for item in warnings))
     def test_twelve_conversational_queries_and_structured_compatibility(self):
         for row in conversational_measurements():
             with self.subTest(message=row["question"]):
@@ -319,7 +337,7 @@ class ResponseTests(unittest.TestCase):
                 if row["tool"] == "get_forecast":
                     self.assertEqual(row["intent"], "predictive")
                 if row["intent"] in {"greeting", "general", "product_count", "warehouses", "stock_total", "location", "alerts", "movements", "recommendations", "predictive", "risk"}:
-                    self.assertEqual(row["ollama_calls"], 0)
+                    self.assertEqual(row["ollama_calls"], 1 if row["intent"] in {"predictive", "risk"} else 0)
                 for field in ("answer", "data", "visualization", "sources", "warnings", "context"):
                     self.assertIn(field, row["fields"])
 
@@ -364,6 +382,7 @@ class ResponseTests(unittest.TestCase):
             async def fail(*args):
                 raise namespace[name]("offline")
             service._agent_loop = fail
+            service._ollama_chat = fail
             with self.assertRaises(HttpError) as raised:
                 asyncio.run(service.ask(request("Explícame esto")))
             self.assertEqual(raised.exception.status_code, expected)

@@ -51,7 +51,7 @@ export default function RecepcionDetallePage() {
   const totalAceptado = (lineas ?? []).reduce((a, l) => a + Math.min(l.aceptada, l.solicitada), 0)
 
   const detallePorId = new Map((detallesQ.data ?? []).map((d) => [d.id_detalle_reposicion, d]))
-  const invPorId = new Map((inventariosQ.data ?? []).map((i) => [i.id_inventario, i]))
+  const invPorId = new Map((inventariosQ.data ?? []).map((i) => [i.id_detalle_inventario ?? i.id_inventario, i]))
   const productoDe = (idDet: string) => {
     const linea = detallePorId.get(idDet)
     return linea ? nombres.producto(linea.id_producto) : `Línea ${shortId(idDet)}`

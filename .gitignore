@@ -24,6 +24,8 @@ venv/
 
 # Pytest
 .pytest_cache/
+.venv-forecasting/
+importar_demanda.log
 
 # Sistema operativo
 .DS_Store
@@ -49,3 +51,6 @@ Thumbs.db
 .codex/
 .aws/
 *.bundle
+# Informes, audio y modelos generados localmente
+/artifacts/
+/backend/artifacts/

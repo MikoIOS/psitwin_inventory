@@ -1,3 +1,4 @@
+import { inventarioDetalleId } from '@/api/inventarios'
 /**
  * Detalle de zona: CRUD de racks mostrados como una grilla de posiciones (filas = niveles, color = estado)
  * y, para el rack seleccionado, el inventario que contiene (stock_actual vs mínimo/máximo con StockBadge).
@@ -34,6 +35,7 @@ import { paths } from '@/paths'
 import { EliminarDialog } from './EliminarDialog'
 import { RackGrilla } from './RackGrilla'
 import { RackFormModal } from './RackForm'
+import { NivelesPanel } from './NivelesPanel'
 import { agruparPorNivel, codigoRack, estiloRack } from './ubicacionUtils'
 
 export default function ZonaDetallePage() {
@@ -116,7 +118,7 @@ function Contenido({ idZona, back }: { idZona: string; back: { to: string; label
               {zona.refrigerada ? 'Refrigerada' : 'No refrigerada'}
             </Badge>
             <Badge tone="neutral" dot={false}>
-              {racks.length} de {formatNumero(zona.capacidad)} niveles
+              {racks.length} de {formatNumero(zona.max_racks ?? zona.capacidad)} racks
             </Badge>
           </>
         }
@@ -176,7 +178,7 @@ function Contenido({ idZona, back }: { idZona: string; back: { to: string; label
               key={seleccionado.id_rack}
               rack={seleccionado}
               codigo={posiciones.get(seleccionado.id_rack) ?? ''}
-              {...(esOperario ? { onEditar: () => setForm({ rack: seleccionado }) } : {})}
+              {...(esOperario || esEmpresa ? { onEditar: () => setForm({ rack: seleccionado }) } : {})}
               {...(esEmpresa ? { onEliminar: () => setAEliminar(seleccionado) } : {})}
             />
           )}
@@ -188,7 +190,7 @@ function Contenido({ idZona, back }: { idZona: string; back: { to: string; label
         idZona={idZona}
         rack={form?.rack ?? null}
         refrigerada={zona.refrigerada}
-        niveles={zona.capacidad}
+        niveles={zona.max_racks ?? zona.capacidad}
         nivelesOcupados={racks.map((r) => r.nivel)}
         onClose={() => setForm(null)}
         onGuardado={(r) => seleccionar(r.id_rack)}
@@ -244,7 +246,7 @@ function RackPanel({ rack, codigo, onEditar, onEliminar }: { rack: Rack; codigo:
           <StatusBadge estado={rack.estado} />
         </span>
       }
-      description={`Nivel ${rack.nivel} · Carga máxima ${formatNumero(rack.capacidad)} kg${temp ? ` · ${temp}` : ''}`}
+      description={`Máximo ${rack.max_niveles ?? 1} niveles · Carga máxima ${formatNumero(rack.capacidad)} kg${temp ? ` · ${temp}` : ''}`}
       actions={
         <>
           {onEditar && (
@@ -259,6 +261,7 @@ function RackPanel({ rack, codigo, onEditar, onEliminar }: { rack: Rack; codigo:
       }
       className="self-start xl:sticky xl:top-4"
     >
+      <NivelesPanel rack={rack} />
       {pct !== null && (
         <div className="mb-4">
           <div className="mb-1 flex justify-between text-xs text-fg-muted">
@@ -286,7 +289,7 @@ function RackPanel({ rack, codigo, onEditar, onEliminar }: { rack: Rack; codigo:
         loading={invQ.isLoading}
         error={invQ.error}
         onRetry={() => void invQ.refetch()}
-        rowKey={(i) => i.id_detalle_inventario ?? i.id_inventario}
+        rowKey={inventarioDetalleId}
         empty={<EmptyState compact icon="box" title="Rack vacío" description="Este rack no tiene inventario registrado." />}
         columns={[
           {

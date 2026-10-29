@@ -8,6 +8,7 @@ export const ESTADO_RACK_ESTILO: Record<EstadoRack, { celda: string; punto: stri
   LLENO: { celda: 'border-accent/70 bg-accent-soft', punto: 'bg-accent' },
   MANTENIMIENTO: { celda: 'border-warning/50 bg-warning-soft', punto: 'bg-warning' },
   INACTIVO: { celda: 'border-border-strong bg-neutral-soft', punto: 'bg-fg-subtle' },
+  ARCHIVADO: { celda: 'border-border-strong bg-neutral-soft', punto: 'bg-fg-subtle' },
 }
 
 export function estiloRack(estado: string) {

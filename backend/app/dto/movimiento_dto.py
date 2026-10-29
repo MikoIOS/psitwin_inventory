@@ -1,3 +1,4 @@
+from app.dto.cantidad import Cantidad
 from datetime import datetime
 from enum import Enum
 from typing import Optional
@@ -35,7 +36,7 @@ class MovimientoCreate(BaseModel):
     tipo_movimiento: TipoMovimiento
     motivo_movimiento: MotivoMovimiento
 
-    cantidad: int = Field(..., gt=0)
+    cantidad: Cantidad = Field(..., gt=0)
 
     observacion: Optional[str] = Field(
         default=None,
@@ -44,6 +45,7 @@ class MovimientoCreate(BaseModel):
 
 
 class MovimientoResponse(BaseModel):
+    id_nivel: str | None = None
     id_movimiento: str
     id_almacen: str
 
@@ -61,10 +63,10 @@ class MovimientoResponse(BaseModel):
     tipo_movimiento: TipoMovimiento
     motivo_movimiento: MotivoMovimiento
 
-    cantidad: int
+    cantidad: Cantidad
 
-    stock_anterior: int
-    stock_nuevo: int
+    stock_anterior: Cantidad
+    stock_nuevo: Cantidad
 
     observacion: Optional[str] = None
 

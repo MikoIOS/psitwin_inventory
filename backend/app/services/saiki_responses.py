@@ -11,6 +11,8 @@ def number(value):
 def operational_answer(kind, rows):
     count = len(rows)
     if kind == "alerts":
+        if count >= 1000:
+            return 'Hay al menos 1000 alertas activas. Se muestran hasta 1000 registros; acota la consulta por inventario o sensor.'
         level = str(rows[0].get("nivel_riesgo", "")).lower() if count == 1 else ""
         detail = f" de riesgo {level}" if level in {"bajo", "medio", "alto", "critico"} else ""
         return "No tienes alertas activas." if not count else f"Tienes {count} alerta{'s' if count != 1 else ''} activa{'s' if count != 1 else ''}{detail}. Puedes consultar los detalles en los datos adjuntos."
@@ -34,10 +36,12 @@ def operational_answer(kind, rows):
 
 def forecast_answer(result):
     horizon = result.get("horizonte_dias", 7)
+    if result.get('estado') == 'CALCULANDO':
+        return 'PsiTwin está calculando el pronóstico real. Puedes consultar el progreso en Análisis; todavía no hay una estimación válida.'
     if result.get("estado") != "DISPONIBLE":
         return f"Pronóstico de {horizon} días no disponible: {result.get('estado', 'NO_DISPONIBLE')}. No hay una estimación válida."
     total = number(result.get("demanda_total_estimada"))
-    return f"La demanda estimada agregada del producto en el almacén para {horizon} días es {total} unidades. Revisa las advertencias del modelo."
+    return f"La demanda estimada agregada del producto en el almacén para {horizon} días es {total} unidades. La proyección está sujeta a incertidumbre."
 
 def risk_answer(results):
     levels = {"BAJO": 0, "MEDIO": 1, "ALTO": 2, "CRITICO": 3}

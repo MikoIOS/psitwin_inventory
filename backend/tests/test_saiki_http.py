@@ -59,6 +59,9 @@ class Collection:
 
 @pytest.fixture
 def http_app(monkeypatch):
+    # Legacy conversation fixtures must not depend on local model installation.
+    from app.services.autogluon_runtime import runtime
+    monkeypatch.setattr(runtime, 'status', lambda: {'validado': False, 'faltantes': ['fixture: legacy engine']})
     data = {name: [] for name in ("almacenes", "zonas", "racks", "productos", "inventarios", "detalles_inventario", "alertas", "recomendaciones", "movimientos")}
     for company, stock in (("A", 3), ("B", 7)):
         data["almacenes"].append({"id": company + "-warehouse", "id_empresa": company})
@@ -240,7 +243,7 @@ def mock_forecast(monkeypatch):
 def test_long_horizon_http_reports_missing_model(http_app, monkeypatch):
     app,_=http_app
     mock_forecast(monkeypatch)
-    monkeypatch.setattr(saiki_controller.service,"_call_ollama_chat",lambda *args:pytest.fail("No Ollama"))
+    monkeypatch.setattr(saiki_controller.service,"_call_ollama_chat",lambda messages, *args: {'message': {'content': __import__('json').loads(messages[-1]['content'])['explicacion_verificada']}})
     response=asyncio.run(post(app,"Proyecta la demanda para 30 días"))
     assert response.status_code==200
     assert response.json()["data"]["get_forecast"]["estado"]=="MODELO_NO_DISPONIBLE"
@@ -250,13 +253,13 @@ def test_long_horizon_http_reports_missing_model(http_app, monkeypatch):
 def test_http_forecast_contract_daily_totals(http_app,monkeypatch):
     app,_=http_app
     mock_forecast(monkeypatch)
-    monkeypatch.setattr(saiki_controller.service,"_call_ollama_chat",lambda *args:pytest.fail("No Ollama"))
+    monkeypatch.setattr(saiki_controller.service,"_call_ollama_chat",lambda messages, *args: {'message': {'content': __import__('json').loads(messages[-1]['content'])['explicacion_verificada']}})
     response=asyncio.run(post(app,"¿Cuál será la demanda de la próxima semana?"))
     assert response.status_code==200,response.text
     forecast=response.json()["data"]["get_forecast"]
     assert len(forecast["predicciones_diarias"])==7
     assert forecast["demanda_total_estimada"]==sum(p["demanda_estimada"] for p in forecast["predicciones_diarias"])
-    assert "LIGHTGBM" in response.json()["sources"]
+    assert "AUTOGLUON" in response.json()["sources"]
 
 @pytest.mark.parametrize("message,expected_tool", CONVERSATIONAL_CASES)
 def test_twelve_questions_through_real_http_with_synthetic_collaborators(http_app, monkeypatch, message, expected_tool):
@@ -307,5 +310,5 @@ def test_twelve_questions_through_real_http_with_synthetic_collaborators(http_ap
         assert expected_tool in [item["name"] for item in tool_times]
     else:
         assert tool_times == []
-    assert len(inference_times) == (0 if response.json()["source"] in {"router", "backend"} else 2)
+    assert len(inference_times) == (1 if expected_tool in {"get_forecast", "get_inventory_risk"} else 0 if response.json()["source"] in {"router", "backend"} else 2)
     assert len(classification_times) == 1

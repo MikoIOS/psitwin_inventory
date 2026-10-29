@@ -29,6 +29,10 @@ export function DespachoModal(props: DespachoModalProps) {
 }
 
 function DespachoAbierto({ open, onClose, orden, detalles, producto }: DespachoModalProps) {
+  const [operationKey] = useState(() => crypto.randomUUID())
+  const sent = new Map<string, number>()
+  for (const dispatch of orden.despachos ?? (orden.despacho ? [orden.despacho] : []))
+    for (const line of dispatch.lineas) sent.set(line.id_detalle_reposicion, (sent.get(line.id_detalle_reposicion) ?? 0) + line.cantidad)
   const toast = useToast()
   const despachar = useDespacharOrden()
   const previo = new Map((orden.despacho?.lineas ?? []).map((l) => [l.id_detalle_reposicion, l]))
@@ -39,7 +43,7 @@ function DespachoAbierto({ open, onClose, orden, detalles, producto }: DespachoM
         return [
           d.id_detalle_reposicion,
           {
-            cantidad: String(p?.cantidad ?? d.cantidad_solicitada),
+            cantidad: String(Math.max(0, d.cantidad_solicitada - (sent.get(d.id_detalle_reposicion) ?? 0))),
             fecha_vencimiento: p?.fecha_vencimiento?.slice(0, 10) ?? '',
             temperatura: p?.temperatura === null || p?.temperatura === undefined ? '' : String(p.temperatura),
           },
@@ -49,6 +53,7 @@ function DespachoAbierto({ open, onClose, orden, detalles, producto }: DespachoM
   )
   const [observacion, setObservacion] = useState(orden.despacho?.observacion ?? '')
   const [enviado, setEnviado] = useState(false)
+  const [accepted, setAccepted] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const set = (id: string, campo: keyof Fila, v: string) => setFilas((f) => ({ ...f, [id]: { ...f[id]!, [campo]: v } }))
 
@@ -56,7 +61,7 @@ function DespachoAbierto({ open, onClose, orden, detalles, producto }: DespachoM
     const f = filas[d.id_detalle_reposicion]!
     const cant = Number(f.cantidad)
     return {
-      cantidad: f.cantidad.trim() === '' || !Number.isInteger(cant) || cant < 0 ? 'Entero ≥ 0' : undefined,
+      cantidad: f.cantidad.trim() === '' || !Number.isFinite(cant) || cant < 0 || cant > d.cantidad_solicitada - (sent.get(d.id_detalle_reposicion) ?? 0) || (d.unidad !== 'kg' && !Number.isInteger(cant)) ? 'Cantidad no válida o superior a lo pendiente de despacho' : undefined,
       temperatura:
         f.temperatura.trim() !== '' && !Number.isFinite(Number(f.temperatura))
           ? 'Número no válido'
@@ -72,11 +77,13 @@ function DespachoAbierto({ open, onClose, orden, detalles, producto }: DespachoM
     e.preventDefault()
     setEnviado(true)
     setError(null)
-    if (!valido) return
+    if (!valido || !accepted) return
     despachar.mutate(
       {
         id: orden.id_orden_reposicion,
         body: {
+          clave_idempotencia: operationKey,
+          conformidad: true,
           lineas: lineas.map((d) => {
             const f = filas[d.id_detalle_reposicion]!
             return {
@@ -108,20 +115,21 @@ function DespachoAbierto({ open, onClose, orden, detalles, producto }: DespachoM
       onClose={onClose}
       dismissable={!despachar.isPending}
       size="xl"
-      title={orden.despacho ? 'Actualizar despacho' : 'Registrar despacho'}
+      title={orden.despacho ? 'Registrar siguiente despacho' : 'Registrar despacho'}
       description="Indica lo que envías de cada producto. Pon 0 en lo que no despachas esta vez."
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={despachar.isPending}>
             Cancelar
           </Button>
-          <Button type="submit" form="form-despacho" icon="truck" loading={despachar.isPending}>
+          <Button type="submit" form="form-despacho" icon="truck" loading={despachar.isPending} disabled={!accepted}>
             Registrar despacho
           </Button>
         </>
       }
     >
       <form id="form-despacho" onSubmit={submit} noValidate className="flex flex-col gap-4">
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} />He revisado y acepto la solicitud aprobada y las cantidades que voy a despachar.</label>
         {detalles.map((d) => {
           const p = producto(d.id_producto)
           const f = filas[d.id_detalle_reposicion]!
@@ -133,7 +141,7 @@ function DespachoAbierto({ open, onClose, orden, detalles, producto }: DespachoM
               </legend>
               <div className="grid gap-3 sm:grid-cols-3">
                 <Field label="Cantidad despachada" error={err.cantidad} required>
-                  <Input type="number" inputMode="numeric" min={0} step={1} suffix="u." value={f.cantidad} onChange={(e) => set(d.id_detalle_reposicion, 'cantidad', e.target.value)} />
+                  <Input type="number" inputMode="decimal" min={0} max={Math.max(0, d.cantidad_solicitada - (sent.get(d.id_detalle_reposicion) ?? 0))} step={d.unidad === 'kg' ? '.001' : '1'} suffix={d.unidad ?? 'unidad'} value={f.cantidad} onChange={(e) => set(d.id_detalle_reposicion, 'cantidad', e.target.value)} />
                 </Field>
                 <Field label="Vencimiento" hint="Opcional.">
                   <Input type="date" value={f.fecha_vencimiento} onChange={(e) => set(d.id_detalle_reposicion, 'fecha_vencimiento', e.target.value)} />

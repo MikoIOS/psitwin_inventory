@@ -22,8 +22,19 @@ import type {
   RecepcionMercaderia,
   Zona,
 } from './types'
+import { ApiError } from './client'
 
 type AnyRecord = Record<string, unknown>
+
+/** An invalid response must never masquerade as an empty catalogue. */
+export function requireList<T = unknown>(raw: unknown): T[] {
+  const rows = Array.isArray(raw) ? raw : isRecord(raw) && Array.isArray(raw.items) ? raw.items : null
+  if (!rows || rows.some(row => !isRecord(row))) {
+    console.warn('[api] Formato de lista no válido')
+    throw new ApiError(502, 'El servidor devolvió un formato de datos no válido. Intenta de nuevo.')
+  }
+  return rows as T[]
+}
 
 function isRecord(v: unknown): v is AnyRecord {
   return typeof v === 'object' && v !== null && !Array.isArray(v)

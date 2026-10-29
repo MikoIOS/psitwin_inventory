@@ -11,11 +11,11 @@ import { correo } from '@/lib/zod'
 import { paths } from '@/paths'
 import { AuthLayout } from './AuthLayout'
 
-const schema = z.object({
+export const loginSchema = z.object({
   correo: correo(),
   password: z.string().min(1, 'Ingresa tu contraseña'),
 })
-type LoginForm = z.input<typeof schema>
+type LoginForm = z.input<typeof loginSchema>
 
 const AVISOS: Record<string, { tone: 'warning' | 'danger' | 'info'; text: string }> = {
   expirada: { tone: 'warning', text: 'Tu sesión expiró. Inicia sesión nuevamente.' },
@@ -39,7 +39,7 @@ export default function LoginPage() {
   const [credencialesInvalidas, setCredencialesInvalidas] = useState(false)
   const [accesoDenegado, setAccesoDenegado] = useState<string | null>(null)
 
-  const form = useForm<LoginForm>({ resolver: zodResolver(schema), defaultValues: { correo: '', password: '' } })
+  const form = useForm<LoginForm>({ resolver: zodResolver(loginSchema), defaultValues: { correo: '', password: '' } })
   const { register, handleSubmit, formState } = form
 
   const aviso = AVISOS[params.get('motivo') ?? '']
@@ -69,7 +69,7 @@ export default function LoginPage() {
   return (
     <AuthLayout
       title="Iniciar sesión"
-      subtitle="Empresa, operario o proveedor: un solo acceso."
+      subtitle="Ingresa con tu correo Gmail y la contraseña de tu cuenta PsiTwin."
       footer={
         <div className="flex flex-col gap-2">
           <p>
@@ -93,11 +93,11 @@ export default function LoginPage() {
       )}
 
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-        <Field label="Correo" error={formState.errors.correo?.message} required>
-          <Input type="email" autoComplete="email" inputMode="email" size="lg" placeholder="usuario@empresa.com" {...register('correo')} />
+        <Field label="Correo Gmail" error={formState.errors.correo?.message} required>
+          <Input type="email" autoComplete="username" inputMode="email" size="lg" placeholder="usuario@gmail.com" {...register('correo')} />
         </Field>
-        <Field label="Contraseña" error={formState.errors.password?.message} required>
-          <Input type="password" autoComplete="current-password" size="lg" {...register('password')} />
+        <Field label="Contraseña" error={formState.errors.password?.message} required hint="La contraseña de PsiTwin que creaste al registrarte.">
+          <Input type="password" autoComplete="current-password" size="lg" placeholder="Introduce tu contraseña" {...register('password')} />
         </Field>
 
         {credencialesInvalidas && (

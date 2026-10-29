@@ -15,7 +15,9 @@ import { Brand } from './Brand'
 import { etiquetaAlerta } from '@/features/monitoreo/monitoreoUtils'
 import { paths } from '@/paths'
 import { NAV_GRUPOS, NAV_ITEMS, type NavItem } from './navigation'
+import { SaikiSessionProvider } from '@/features/saiki/SaikiSession'
 const SaikiNotification = lazy(() => import('@/features/saiki/SaikiSensors').then(module => ({ default: module.SaikiNotification })))
+const SaikiMini = lazy(() => import('@/features/saiki/SaikiMini').then(module => ({ default: module.SaikiMini })))
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const alertasAbiertas = useMonitoreoVivo()?.alertasAbiertas.length ?? 0
@@ -72,7 +74,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                           aria-hidden="true"
                         />
                         <Icon name={item.icon} className={cn('size-[1.125rem]', isActive ? 'text-accent' : 'text-sidebar-muted group-hover:text-sidebar-fg')} />
-                        {item.label}
+                        <span>{item.label}{item.subtitle && <span className="block text-[10px] font-normal tracking-wide text-sidebar-muted">{item.subtitle}</span>}</span>
                         {item.to === paths.monitoreo && alertasAbiertas > 0 && (
                           <span className="ml-auto rounded-full bg-danger px-2 py-0.5 font-mono text-xs font-semibold text-white" aria-label={`${alertasAbiertas} alertas abiertas`}>
                             {alertasAbiertas}
@@ -116,13 +118,13 @@ function NavigationProgress() {
 export function AppLayout() {
   const toast = useToast()
   return (
-    <MonitoreoProvider
+    <SaikiSessionProvider><MonitoreoProvider
       onAlerta={(evento, alerta, d) => {
         if (evento === 'ABIERTA') toast.error(`${d?.nombre ?? 'Dispositivo'}: ${alerta.mensaje ?? alerta.titulo ?? ''}`.trim(), etiquetaAlerta(alerta.tipo_alerta))
       }}
     >
       <AppLayoutContenido />
-    </MonitoreoProvider>
+    </MonitoreoProvider></SaikiSessionProvider>
   )
 }
 
@@ -157,6 +159,7 @@ function AppLayoutContenido() {
     <div className="min-h-dvh bg-bg">
       <NavigationProgress />
       <Suspense fallback={null}><SaikiNotification /></Suspense>
+      <Suspense fallback={null}><SaikiMini /></Suspense>
       <a
         href="#contenido"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[80] focus:rounded focus:bg-surface focus:px-3 focus:py-2 focus:text-fg focus:shadow-pop"

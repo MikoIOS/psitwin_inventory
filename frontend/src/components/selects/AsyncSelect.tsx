@@ -37,8 +37,8 @@ export function AsyncSelect({
 
   if (blockedReason) return stub(blockedReason)
   if (loading && !options) return stub('Cargando…')
-  if (error && !options) return stub(error instanceof ApiError ? `Error: ${error.detail}` : 'Error al cargar')
+  if (error && !options?.length) return stub(error instanceof ApiError ? `Error: ${error.detail}` : 'Error al cargar')
   if (!options || options.length === 0) return stub(emptyText)
 
-  return <Select key={resetKey ?? 'default'} ref={ref} {...props} options={options} placeholder={placeholder} />
+  return <>{error ? <p role="alert" className="text-sm text-danger">No se pudieron actualizar las opciones. Se muestran los últimos datos cargados.</p> : null}<Select key={resetKey ?? 'default'} ref={ref} {...props} options={options} placeholder={placeholder} /></>
 }

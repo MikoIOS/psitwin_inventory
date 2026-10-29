@@ -134,6 +134,19 @@
   --shadow-pop: 0 12px 32px -8px rgb(var(--shadow-color) / 0.28), 0 2px 6px rgb(var(--shadow-color) / 0.1);
 }
 
+/* Authentication retains PsiTwin's dark and gold identity independently of OS theme. */
+.auth-theme {
+  --bg: #141311; --surface: #1c1b18; --surface-2: #24221f; --surface-3: #2d2a26;
+  --border: #35322c; --border-strong: #4d4841;
+  --fg: #ece8e1; --fg-muted: #b3aca0; --fg-subtle: #8f887c;
+  --accent: #f5b133; --accent-hover: #ffc355; --accent-fg: #1a1400;
+  --accent-soft: #3a2c0e; --accent-ink: #f5c265;
+  --success: #62c28d; --success-soft: #15301f;
+  --danger: #f07a6e; --danger-soft: #3d1a16; --danger-hover: #ff9589;
+  --sidebar: #0e0d0c; --sidebar-2: #1f1d1a; --sidebar-fg: #e2ddd3; --sidebar-muted: #938c80;
+  --focus: #74b2ea; color-scheme: dark;
+}
+
 @theme {
   --font-sans: 'IBM Plex Sans', 'Inter', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
@@ -226,4 +239,97 @@
   to {
     transform: translateX(0);
   }
+}
+
+/* Saiki's visual identity: the waveform follows the real voice-session state. */
+.saiki-presence {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  background: radial-gradient(ellipse at 50% 35%, #21255a 0%, #111832 45%, #080d20 100%);
+  color: #fff;
+  border: 1px solid #818cf840;
+}
+.saiki-presence__grid {
+  position: absolute;
+  inset: 0;
+  opacity: .13;
+  background-image: linear-gradient(#94a3ff33 1px, transparent 1px), linear-gradient(90deg, #94a3ff33 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: linear-gradient(transparent, #000, transparent);
+  pointer-events: none;
+}
+.saiki-presence__orb {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(22rem, 82vw);
+  height: 15rem;
+  margin: .5rem auto;
+}
+.saiki-presence__ring {
+  position: absolute;
+  width: 13rem;
+  height: 13rem;
+  border: 1px solid #8b9bff55;
+  border-radius: 50%;
+  box-shadow: 0 0 45px #7367f522, inset 0 0 30px #7367f515;
+  transform: rotateX(24deg) rotateY(-18deg);
+}
+.saiki-presence__ring--inner {
+  width: 10.5rem;
+  height: 10.5rem;
+  border-color: #b677ff55;
+  transform: rotateX(-24deg) rotateY(18deg);
+}
+.saiki-presence__glow {
+  position: absolute;
+  inset: 10%;
+  background: radial-gradient(ellipse, #6967ee33, #b35bdd15 40%, transparent 70%);
+  filter: blur(18px);
+}
+.saiki-presence__wordmark {
+  position: absolute;
+  top: 16%;
+  font: 500 12px/1 monospace;
+  letter-spacing: .2em;
+  color: #c5caff90;
+}
+.saiki-presence__orb > [data-lk-state] { width: 100%; height: 100%; }
+.saiki-mini { max-height: 85dvh; overflow-y: auto; }
+.saiki-presence[data-state='listening'] .saiki-presence__ring { border-color: #69e6c380; }
+.saiki-presence[data-state='thinking'] .saiki-presence__ring { animation: saiki-orbit 5s linear infinite; }
+.saiki-presence[data-state='speaking'] .saiki-presence__glow { animation: saiki-glow 1.6s ease-in-out infinite alternate; }
+.saiki-presence--compact { border: 0; border-radius: 0; }
+.saiki-presence--compact .saiki-presence__orb { height: 6rem; margin: .25rem auto; }
+.saiki-presence--compact .saiki-presence__ring { width: 6rem; height: 6rem; }
+.saiki-presence--compact .saiki-presence__ring--inner { width: 4.5rem; height: 4.5rem; }
+.saiki-presence--compact .saiki-presence__wordmark { display: none; }
+@keyframes saiki-orbit { to { transform: rotateX(24deg) rotateY(-18deg) rotate(360deg); } }
+@keyframes saiki-glow { to { opacity: .4; transform: scale(.85); } }
+.saiki-presence__sphere {
+  position: absolute;
+  width: 11.5rem;
+  height: 11.5rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 22%, #b8dcffbb, transparent 35%), radial-gradient(circle at 75% 75%, #9b57eadd, transparent 60%), radial-gradient(circle at 35% 60%, #1678e5, #24235f 75%);
+  box-shadow: inset -15px -20px 32px #090d3b99, inset 2px 3px 10px #c2ccff77, 0 0 45px #6574ff50;
+  animation: saiki-breathe 7s ease-in-out infinite;
+  transition: transform 160ms ease, box-shadow 300ms ease;
+}
+.saiki-presence__wordmark { top: auto; z-index: 20; font: 500 3.2rem/1 Georgia, serif; color: #eff3ff; letter-spacing: 0; text-shadow: 0 0 20px #d1ddff88; }
+.saiki-presence[data-state='listening'] .saiki-presence__sphere { animation-duration: 2.5s; box-shadow: inset -15px -20px 32px #090d3b99, 0 0 45px #36a5ff77; }
+.saiki-presence[data-state='thinking'] .saiki-presence__ring { border-top-color: #c4a5ff; border-right-color: #67bfff; animation-duration: 2.2s; }
+.saiki-presence[data-state='speaking'] .saiki-presence__sphere { animation: none; transform: scale(calc(1 + var(--saiki-level, 0) * .09)); }
+.saiki-presence--compact .saiki-presence__sphere { width: 4.8rem; height: 4.8rem; }
+@keyframes saiki-breathe { 50% { transform: translateY(-3px) scale(1.025); } }
+@media (prefers-reduced-motion: reduce) {
+  .saiki-presence *, .saiki-mini * { animation: none !important; transition: none !important; }
+}
+/* Alert state remains visible when speech is disabled. */
+.saiki-presence[data-state="alert"] .saiki-presence__sphere {
+  box-shadow: 0 0 44px #b48aff66, inset 0 0 24px #efb94d55;
+  border-color: #e5bd73;
 }

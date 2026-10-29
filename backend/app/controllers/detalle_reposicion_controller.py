@@ -63,7 +63,7 @@ async def crear(
 ):
     await AccesoService.verificar_orden(user, id_orden)
     await AccesoService.verificar_producto(user, data.id_producto)
-    return await service.crear(id_orden, data)
+    return await service.crear(id_orden, data, user)
 
 
 # EMPRESA, OPERARIO (su almacén) o PROVEEDOR (enviada a él)
@@ -102,7 +102,7 @@ async def actualizar(
     await _verificar_detalle(user, id_detalle)
     return await service.actualizar(
         id_detalle,
-        data
+        data, user
     )
 
 
@@ -114,4 +114,4 @@ async def eliminar(
     user: UsuarioActual = Depends(require_operario)
 ):
     await _verificar_detalle(user, id_detalle)
-    return await service.eliminar(id_detalle)
+    return await service.eliminar(id_detalle, user)

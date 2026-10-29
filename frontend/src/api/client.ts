@@ -143,6 +143,7 @@ export class ApiError extends Error {
       detail = body
     }
 
+    if (code === 'GOOGLE_NOT_CONFIGURED') detail = 'El acceso con Google aún no está configurado. Contacta al administrador.'
     return new ApiError(res.status, detail, fieldErrors, body, code)
   }
 }

@@ -360,6 +360,6 @@ class DetalleInventarioRepository:
     async def obtener_por_inventario(self, id_inventario):
         return await self.collection().find({"id_inventario": id_inventario}, {"_id": 0}).to_list(length=None)
 
-    async def obtener_combinacion(self, id_inventario, id_producto, id_rack):
+    async def obtener_combinacion(self, id_inventario, id_producto, id_rack, id_nivel=None):
         return await self.collection().find_one({"id_inventario": id_inventario,
-            "id_producto": id_producto, "id_rack": id_rack}, {"_id": 0})
+            "id_producto": id_producto, "id_rack": id_rack, 'id_nivel': id_nivel}, {"_id": 0})

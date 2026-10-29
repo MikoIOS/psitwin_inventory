@@ -1,4 +1,5 @@
 from typing import Any, Awaitable, Callable
+import asyncio
 import logging
 import time
 
@@ -30,6 +31,9 @@ class InventoryArgs(BaseModel):
 class ProductArgs(BaseModel):
     id_producto: str | None = Field(default=None, min_length=1, description="Producto específico; omitir para consultar el catálogo de la empresa autenticada.")
 
+class NoArgs(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
 
 class ForecastArgs(BaseModel):
     id_producto: str = Field(min_length=1)
@@ -46,6 +50,17 @@ class OptionalInventoryArgs(BaseModel):
 
 class SensorStatusArgs(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    id_dispositivo: str | None = Field(default=None, min_length=1)
+    horas: int = Field(default=24, ge=1, le=168)
+    question: str | None = Field(default=None, min_length=1, max_length=1000)
+    id_almacen: str | None = Field(default=None, min_length=1)
+
+
+class DemandAnalysisArgs(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    horizonte_dias: Literal[1, 7, 30, 90] = 30
+    id_almacen: str | None = Field(default=None, min_length=1)
+    id_producto: str | None = Field(default=None, min_length=1)
 
 
 class WarehouseStatusArgs(OptionalInventoryArgs):
@@ -68,6 +83,9 @@ class SaikiToolRegistry:
         self.recomendacion_service = RecomendacionService()
         self.movimiento_service = MovimientoService()
         self._handlers: dict[str, tuple[type[BaseModel], ToolHandler, str]] = {
+            'get_workforce': (NoArgs, self.get_workforce, 'OPERARIOS'),
+            'get_locations': (NoArgs, self.get_locations, 'UBICACIONES'),
+            'get_demand_analysis': (DemandAnalysisArgs, self.get_demand_analysis, 'AUTOGLUON'),
             "get_sensor_status": (
                 SensorStatusArgs,
                 self.get_sensor_status,
@@ -86,7 +104,7 @@ class SaikiToolRegistry:
             "get_forecast": (
                 ForecastArgs,
                 self.get_forecast,
-                "LIGHTGBM",
+                "AUTOGLUON",
             ),
             "get_inventory_risk": (
                 InventoryArgs,
@@ -133,7 +151,7 @@ class SaikiToolRegistry:
                         + (
                             "Para un resumen general del almacén no requiere argumentos."
                             if name == "get_warehouse_status"
-                            else "Sensores y equipos de refrigeración: lecturas, ubicaciones, alertas e historial autorizado, sin argumentos." if name == "get_sensor_status"
+                            else "Sensores y equipos de refrigeración: lecturas, ubicaciones, alertas e historial autorizado. Opcionalmente selecciona id_dispositivo y una ventana de 1 a 168 horas." if name == "get_sensor_status"
                             else f"Tool autorizada: {name}."
                         )
                     ),
@@ -159,7 +177,7 @@ class SaikiToolRegistry:
             raise ValueError(f"Argumentos inválidos para {name}: {exc}") from exc
         visible = None
         started = time.perf_counter()
-        if name == "get_sensor_status":
+        if name in {"get_sensor_status", "get_demand_analysis", 'get_workforce', 'get_locations'}:
             return await handler(validated, user), source
         if user is not None:
             visible = await self._authorize(name, validated, user)
@@ -170,6 +188,8 @@ class SaikiToolRegistry:
                 return await handler(validated, user, visible), source
             if name == "get_product":
                 return await handler(validated, user), source
+            if name == 'get_active_alerts':
+                return await handler(validated, visible, user), source
             if name in {"get_active_alerts", "get_recommendations", "get_recent_movements"}:
                 return await handler(validated, visible), source
             return await handler(validated), source
@@ -177,6 +197,10 @@ class SaikiToolRegistry:
             logger.info("saiki_data_query tool=%s duration_ms=%.3f", name, (time.perf_counter() - started) * 1000)
 
     async def _authorize(self, name: str, args: BaseModel, user):
+        if name == 'get_product':
+            if args.id_producto:
+                await AccesoService.verificar_producto(user, args.id_producto)
+            return None
         if name == "get_warehouse_status" and getattr(args, "include_visual", False) and not args.id_inventario:
             # The visual summary traverses the authorized hierarchy once itself.
             return None
@@ -190,9 +214,40 @@ class SaikiToolRegistry:
         return visible
 
     async def get_sensor_status(self, args: SensorStatusArgs, user=None):
+        if args.question:
+            from app.services.saiki_sensor_queries import consultar_sensores
+            answer, evidence = await consultar_sensores(user, args.question, args.id_dispositivo, args.id_almacen)
+            return {'resumen': answer, **evidence}
         from app.services.saiki_sensors import sensor_report
-        answer, evidence = await sensor_report(user)
+        answer, evidence = await sensor_report(user, args.id_dispositivo, args.horas)
         return {"resumen": answer, **evidence}
+
+    async def get_workforce(self, args, user=None):
+        from fastapi import HTTPException
+        from app.services.operario_service import OperarioService
+        if user is None or not user.es_empresa:
+            raise HTTPException(403, 'Solo la empresa puede consultar su personal')
+        rows = await OperarioService().obtener_por_empresa(user.id_empresa, user)
+        active = sum(str(row.get('estado', '')).casefold() == 'activo' for row in rows)
+        inactive = sum(str(row.get('estado', '')).casefold() == 'inactivo' for row in rows)
+        return {'total': len(rows), 'activos': active, 'inactivos': inactive, 'otros_estados': len(rows) - active - inactive}
+
+    async def get_locations(self, args, user=None):
+        from fastapi import HTTPException
+        from app.services.acceso_service import id_de_almacen, id_de_zona
+        if user is None or not user.es_empresa:
+            raise HTTPException(403, 'Se requiere una sesión de empresa')
+        warehouses = await AlmacenRepository.obtener_por_empresa(user.id_empresa)
+        zones = await ZonaRepository.obtener_por_almacenes([id_de_almacen(row) for row in warehouses if id_de_almacen(row)])
+        racks = await RackRepository.obtener_por_zonas([id_de_zona(row) for row in zones if id_de_zona(row)])
+        return {'almacenes': [{'id_almacen': id_de_almacen(row), 'nombre': row.get('nombre', '')} for row in warehouses],
+            'total_almacenes': len(warehouses), 'total_zonas': len(zones), 'total_racks': len(racks)}
+
+    async def get_demand_analysis(self, args: DemandAnalysisArgs, user=None):
+        if user is None: raise ValueError('Se requiere una sesión para consultar demanda')
+        from app.services.saiki_demand import demand_answer
+        answer, evidence = await demand_answer(user, args.horizonte_dias, args.id_almacen, args.id_producto)
+        return {'resumen': answer, **evidence}
 
     async def get_inventory(self, args: InventoryArgs):
         header = await self.inventario_service.obtener_inventario(args.id_inventario)
@@ -202,7 +257,10 @@ class SaikiToolRegistry:
     async def get_product(self, args: ProductArgs, user=None):
         if args.id_producto:
             return await ProductoRepository.obtener_por_id(args.id_producto)
-        products = await ProductoRepository.obtener_todos()
+        query = {'id_empresa': user.id_empresa} if user is not None else {}
+        if user is not None and getattr(user, 'es_proveedor', False):
+            query['id_proveedor'] = user.id_proveedor
+        products = await ProductoRepository.collection().find(query, {'_id': 0}).to_list(length=None) if user is not None else await ProductoRepository.obtener_todos()
         return [item for item in products if user is None or item.get("id_empresa") == user.id_empresa]
 
     async def get_forecast(self, args: ForecastArgs):
@@ -222,10 +280,15 @@ class SaikiToolRegistry:
         )
         return result.model_dump(mode="python")
 
-    async def get_active_alerts(self, args: OptionalInventoryArgs, visible=None):
+    async def get_active_alerts(self, args: OptionalInventoryArgs, visible=None, user=None):
+        if user is not None and not args.id_inventario:
+            return await self.alerta_service.listar_activas_por_empresa(user.id_empresa)
         if args.id_inventario:
             alerts = await self.alerta_service.listar_por_inventario(args.id_inventario)
             return [item for item in alerts if item.get("estado") == "ACTIVA"]
+        if visible is not None:
+            groups = await asyncio.gather(*(self.alerta_service.listar_por_inventario(i) for i in visible))
+            return [item for group in groups for item in group if item.get('estado') == 'ACTIVA']
         alerts = await self.alerta_service.listar_activas()
         return [item for item in alerts if visible is None or item.get("id_inventario") in visible]
 
@@ -234,6 +297,9 @@ class SaikiToolRegistry:
             return await self.recomendacion_service.listar_por_inventario(
                 args.id_inventario
             )
+        if visible is not None:
+            groups = await asyncio.gather(*(self.recomendacion_service.listar_por_inventario(i) for i in visible))
+            return [item for group in groups for item in group]
         recommendations = await self.recomendacion_service.listar()
         return [
             item
@@ -245,7 +311,11 @@ class SaikiToolRegistry:
         if args.id_inventario:
             movements = await self.movimiento_service.obtener_por_inventario(args.id_inventario)
         else:
-            movements = await self.movimiento_service.obtener_movimientos()
+            if visible is not None:
+                groups = await asyncio.gather(*(self.movimiento_service.obtener_por_inventario(i) for i in visible))
+                movements = [item for group in groups for item in group]
+            else:
+                movements = await self.movimiento_service.obtener_movimientos()
             movements = [item for item in movements if visible is None or item.get("id_inventario") in visible]
         return sorted(
             movements,
@@ -265,7 +335,7 @@ class SaikiToolRegistry:
         visible_warehouse_ids = None
         if user is not None:
             visible_warehouse_ids = await AccesoService.ids_almacenes(user)
-        warehouses = await AlmacenRepository.obtener_todos()
+        warehouses = await AlmacenRepository.obtener_por_empresa(user.id_empresa) if user is not None else await AlmacenRepository.obtener_todos()
         if visible_warehouse_ids is not None:
             warehouses = [
                 warehouse
@@ -290,21 +360,24 @@ class SaikiToolRegistry:
                 "inventarios": [],
             }
 
+        scoped_zones, scoped_racks = None, None
         if visible_warehouse_ids is not None:
+            scoped_zones = await ZonaRepository.obtener_por_almacenes(list(visible_warehouse_ids))
             visible_zone_ids = {
                 zone.get("id_zona", zone.get("id"))
-                for zone in await ZonaRepository.obtener_todas()
+                for zone in scoped_zones
                 if zone.get("id_almacen") in visible_warehouse_ids
             }
+            scoped_racks = await RackRepository.obtener_por_zonas(list(visible_zone_ids))
             visible_rack_ids = {
                 rack.get("id_rack") or rack.get("id")
-                for rack in await RackRepository.obtener_todos()
+                for rack in scoped_racks
                 if rack.get("id_zona") in visible_zone_ids
             }
         else:
             visible_rack_ids = None
 
-        inventories = await DetalleInventarioRepository().obtener_todos()
+        inventories = await DetalleInventarioRepository().obtener_por_racks(list(visible_rack_ids)) if visible_rack_ids is not None else await DetalleInventarioRepository().obtener_todos()
         if visible is not None:
             inventories = [
                 item for item in inventories
@@ -327,7 +400,7 @@ class SaikiToolRegistry:
             for item in inventories
             if item.get("id_producto")
         }
-        all_products = await ProductoRepository.obtener_todos()
+        all_products = await ProductoRepository.collection().find({'id_empresa': user.id_empresa}, {'_id': 0}).to_list(length=None) if user is not None else await ProductoRepository.obtener_todos()
         products = {
             product["id_producto"]: product
             for product in all_products
@@ -337,6 +410,8 @@ class SaikiToolRegistry:
                 or (user is not None and product.get("id_empresa") == user.id_empresa)
             )
         }
+        if user is not None:
+            inventories = [item for item in inventories if item.get('id_producto') in products]
         if not inventories and not products:
             return {
                 "estado_inventario": "almacen_sin_productos",
@@ -376,7 +451,7 @@ class SaikiToolRegistry:
         }
         racks = {
             (rack.get("id_rack") or rack.get("id")): rack
-            for rack in await RackRepository.obtener_todos()
+            for rack in (scoped_racks if scoped_racks is not None else await RackRepository.obtener_todos())
             if (rack.get("id_rack") or rack.get("id")) in rack_ids
         }
         zone_ids = {
@@ -386,7 +461,7 @@ class SaikiToolRegistry:
         }
         zones = {
             zone.get("id_zona", zone.get("id")): zone
-            for zone in await ZonaRepository.obtener_todas()
+            for zone in (scoped_zones if scoped_zones is not None else await ZonaRepository.obtener_todas())
             if zone.get("id_zona", zone.get("id")) in zone_ids
         }
         warehouse_ids = {

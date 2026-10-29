@@ -1,3 +1,4 @@
+from app.dto.cantidad import Cantidad
 from datetime import datetime
 from enum import Enum
 from typing import Optional
@@ -17,20 +18,21 @@ class EstadoRecepcion(str, Enum):
 
 
 class DetalleRecepcionCreate(BaseModel):
+    id_nivel: str | None = None
     id_detalle_reposicion: str
     id_inventario: str
     id_detalle_inventario: str | None = None
 
     id_rack: str | None = None
-    stock_minimo: int = Field(default=0, ge=0)
-    stock_maximo: int | None = Field(default=None, ge=0)
+    stock_minimo: Cantidad = Field(default=0, ge=0)
+    stock_maximo: Cantidad | None = Field(default=None, ge=0)
 
-    cantidad_recibida: int = Field(
+    cantidad_recibida: Cantidad = Field(
         ...,
         gt=0
     )
 
-    cantidad_rechazada: int = Field(
+    cantidad_rechazada: Cantidad = Field(
         default=0,
         ge=0
     )
@@ -61,6 +63,8 @@ class DetalleRecepcionCreate(BaseModel):
 
     @model_validator(mode="after")
     def validar_cantidades(self):
+        if self.estado_recepcion == EstadoRecepcion.RECHAZADO:
+            self.cantidad_rechazada = self.cantidad_recibida
 
         self.lote = self.lote.strip()
 
@@ -110,9 +114,9 @@ class DetalleRecepcionResponse(BaseModel):
     id_inventario: str
     id_detalle_inventario: str | None = None
 
-    cantidad_recibida: int
-    cantidad_rechazada: int
-    cantidad_aceptada: int
+    cantidad_recibida: Cantidad
+    cantidad_rechazada: Cantidad
+    cantidad_aceptada: Cantidad
 
     lote: str = "SIN_LOTE"
     fecha_vencimiento: datetime | None = None

@@ -315,7 +315,7 @@ class RackService:
     # CREAR
     # ============================================================
 
-    async def crear_rack(
+    async def _crear_rack(
         self,
         data: RackCreate
     ):
@@ -335,40 +335,7 @@ class RackService:
         # NIVEL DENTRO DE LOS NIVELES DE LA ZONA
         # --------------------------------------------------------
 
-        niveles = int(
-            zona.get("capacidad") or 0
-        )
-
-        if data.nivel > niveles:
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    f"La zona solo tiene {niveles} "
-                    f"nivel(es); no existe el nivel {data.nivel}"
-                )
-            )
-
-        # --------------------------------------------------------
-        # UN RACK POR NIVEL
-        # --------------------------------------------------------
-
-        racks_zona = (
-            await self.repository.obtener_por_zona(
-                data.id_zona
-            )
-        )
-
-        if any(
-            rack.get("nivel") == data.nivel
-            for rack in racks_zona
-        ):
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    f"Ya existe un rack en el nivel "
-                    f"{data.nivel} de esta zona"
-                )
-            )
+        racks_zona = await self.repository.obtener_por_zona(data.id_zona)
 
         codigo = data.codigo.strip().upper()
 
@@ -429,6 +396,8 @@ class RackService:
             "id_zona":
                 data.id_zona,
 
+            "max_niveles": data.max_niveles,
+            "tipo_rack": data.tipo_rack.strip() if data.tipo_rack else None,
             "codigo":
                 codigo,
 
@@ -609,7 +578,7 @@ class RackService:
     # ACTUALIZAR (OPERARIO): estado y temperatura
     # ============================================================
 
-    async def actualizar_rack(
+    async def _actualizar_rack(
         self,
         id_rack: str,
         data: RackUpdate
@@ -629,6 +598,10 @@ class RackService:
         datos = data.model_dump(
             exclude_unset=True
         )
+        if datos.get('max_niveles') is not None:
+            levels = await get_database()["niveles"].find({'id_rack': id_rack}, {'_id': 0}).to_list(length=1000)
+            if datos['max_niveles'] < max([len(levels)] + [level['numero'] for level in levels]):
+                raise HTTPException(409, 'El máximo de niveles no puede ser menor que los niveles existentes')
 
         if "estado" in datos:
 
@@ -698,7 +671,7 @@ class RackService:
         )
 
 
-    async def eliminar_rack(
+    async def _eliminar_rack(
         self,
         id_rack: str
     ):
@@ -747,3 +720,26 @@ class RackService:
             "eliminado":
                 eliminado
         }
+
+    async def crear_rack(self, data):
+        from app.services.jerarquia_service import JerarquiaService
+        return await JerarquiaService.crear_rack(self, data)
+
+    async def actualizar_rack(self, identifier, data):
+        from app.services.stock_lock import bloqueo_rack
+        async with bloqueo_rack(identifier):
+            result = await self._actualizar_rack(identifier, data)
+            if data.max_niveles is not None:
+                from app.services.jerarquia_service import JerarquiaService
+                await JerarquiaService.asegurar_niveles(result)
+            return result
+
+    async def eliminar_rack(self, identifier):
+        from app.services.stock_lock import bloqueo_rack
+        async with bloqueo_rack(identifier):
+            if await get_database()["niveles"].find_one({'id_rack': identifier}):
+                raise HTTPException(409, 'El rack contiene niveles; elimine o reubique sus referencias primero')
+            for collection in ('dispositivos', 'movimientos', 'detalles_recepcion', 'alertas', 'lecturas'):
+                if await get_database()[collection].find_one({'id_rack': identifier}):
+                    raise HTTPException(409, 'El rack tiene referencias; desactive o archive la ubicacion')
+            return await self._eliminar_rack(identifier)

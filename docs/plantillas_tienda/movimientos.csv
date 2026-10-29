@@ -1,0 +1,2 @@
+﻿"origen_datos","evento_codigo","fecha_hora_lima","sku_tienda","almacen_origen","rack_origen","almacen_destino","rack_destino","tipo","motivo","cantidad_base","documento","responsable_rol"
+"SIMULADO","MOV-001","2026-10-27 10:00","PIL-001","Principal","B-01","","","SALIDA","VENTA","8","POS-EJEMPLO-01","Operario"

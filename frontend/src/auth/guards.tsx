@@ -120,9 +120,10 @@ export function RequireAlmacen() {
 
 function RequireAlmacenEmpresa() {
   const st = useOnboardingState()
+  const location = useLocation()
   return (
     <OnboardingGate>
-      {!st.isLoading && !st.error && !st.tieneAlmacenes ? <Navigate to={paths.onboardingAlmacen} replace /> : <Outlet />}
+      {!st.isLoading && !st.error && !st.tieneAlmacenes && !['/', '/perfil', '/saiki'].includes(location.pathname) ? <Navigate to={paths.onboardingAlmacen} replace /> : <Outlet />}
     </OnboardingGate>
   )
 }

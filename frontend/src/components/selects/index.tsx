@@ -1,3 +1,4 @@
+import { inventarioDetalleId } from '@/api/inventarios'
 /**
  * Selects reutilizables conectados a la API. Todos aceptan los props de un <select> nativo,
  * así que funcionan con `register()` de react-hook-form o de forma controlada:
@@ -23,8 +24,16 @@ import { useZonasPorAlmacen } from '@/api/zonas'
 import type { SelectOption, SelectProps } from '@/components/ui/Select'
 import { formatNumero } from '@/lib/format'
 import { AsyncSelect } from './AsyncSelect'
+import { useQuery } from '@tanstack/react-query'
+import { abastecimientoApi } from '@/api/abastecimiento'
 
 type BaseProps = Omit<SelectProps, 'options' | 'children'>
+
+export function NivelSelect({ idRack, ...props }: BaseProps & { idRack: string | undefined }) {
+  const query = useQuery({ queryKey: ['niveles', idRack], queryFn: () => abastecimientoApi.niveles(idRack!), enabled: !!idRack })
+  return <AsyncSelect {...props} options={query.data?.map(n => ({ value: n.id_nivel, label: `Nivel ${n.numero} · ${n.codigo}` }))}
+    loading={query.isLoading} error={query.error} blockedReason={idRack ? undefined : 'Primero elige un rack'} emptyText="Este rack no tiene niveles registrados" resetKey={idRack} />
+}
 
 const porLabel = (a: SelectOption, b: SelectOption) => a.label.localeCompare(b.label, 'es')
 
@@ -167,6 +176,7 @@ export function ProveedorSelect({ soloActivos = true, ...props }: ProveedorSelec
 /* ------------------------------------------------------------------ */
 
 export interface InventarioSelectProps extends BaseProps {
+  valueKind?: 'detalle' | 'inventario'
   idProducto: string | undefined
   /** Limita a racks de este almacén (ej. almacén de la orden en recepciones). */
   idAlmacen?: string | undefined
@@ -175,7 +185,7 @@ export interface InventarioSelectProps extends BaseProps {
 }
 
 /** Ubicaciones (inventarios) de un producto: "Zona A › Rack A-01 — stock 40". */
-export function InventarioSelect({ idProducto, idAlmacen, emptyText, ...props }: InventarioSelectProps) {
+export function InventarioSelect({ valueKind = 'detalle', idProducto, idAlmacen, emptyText, ...props }: InventarioSelectProps) {
   const q = useInventariosPorProducto(idProducto || undefined)
   const ub = useUbicaciones()
   const options = ub.isLoading
@@ -185,11 +195,12 @@ export function InventarioSelect({ idProducto, idAlmacen, emptyText, ...props }:
           const u = ub.porRack.get(inv.id_rack)
           return u && (!idAlmacen || u.almacen.id_almacen === idAlmacen)
         })
+        .filter((inv, index, rows) => valueKind === 'detalle' || rows.findIndex(row => row.id_inventario === inv.id_inventario) === index)
         .map((inv) => {
           const u = ub.porRack.get(inv.id_rack)!
           return {
-            value: inv.id_inventario,
-            label: `${idAlmacen ? u.etiquetaCorta : u.etiqueta} — stock ${formatNumero(inv.stock_actual)}`,
+            value: valueKind === 'inventario' ? inv.id_inventario : inventarioDetalleId(inv),
+            label: valueKind === 'inventario' ? u.almacen.nombre : `${idAlmacen ? u.etiquetaCorta : u.etiqueta} — stock ${formatNumero(inv.stock_actual)}`,
           }
         })
         .sort(porLabel)

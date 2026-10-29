@@ -1,3 +1,4 @@
+import { inventarioDetalleId } from '@/api/inventarios'
 /**
  * Formulario de MOVIMIENTO DE SALIDA (reutilizable). Las entradas ya no se registran a mano: llegan por recepción.
  *
@@ -69,7 +70,7 @@ export function MovimientoForm({ inventario: invFijo, idProducto, onSuccess, onC
     resolver: zodResolver(schema),
     defaultValues: {
       id_producto: invFijo?.id_producto ?? idProducto ?? '',
-      id_inventario: invFijo?.id_inventario ?? '',
+      id_inventario: invFijo ? inventarioDetalleId(invFijo) : '',
       motivo_movimiento: 'VENTA',
       cantidad: '',
       observacion: '',
@@ -82,7 +83,7 @@ export function MovimientoForm({ inventario: invFijo, idProducto, onSuccess, onC
   // Stock actual del inventario elegido (detalle fresco; si no, el de la lista del producto o el fijo).
   const detalle = useInventario(idInv || undefined)
   const lista = useInventariosPorProducto(invFijo ? undefined : idProd || undefined)
-  const inv = detalle.data ?? lista.data?.find((i) => i.id_inventario === idInv) ?? (invFijo?.id_inventario === idInv ? invFijo : undefined)
+  const inv = detalle.data ?? lista.data?.find((i) => inventarioDetalleId(i) === idInv) ?? (invFijo && inventarioDetalleId(invFijo) === idInv ? invFijo : undefined)
   const producto = useProducto(inv?.id_producto ?? (idProd || undefined))
   const ubicacion = inv ? ub.porRack.get(inv.id_rack) : undefined
 
@@ -93,7 +94,8 @@ export function MovimientoForm({ inventario: invFijo, idProducto, onSuccess, onC
   const excedeStock = inv !== undefined && cantidadValida && cantidad > inv.stock_actual
   const submit = handleSubmit(async ({ id_producto: _p, ...values }) => {
     apiError.clear()
-    const body: MovimientoCreate = values
+    if (!inv) return
+    const body: MovimientoCreate = { ...values, id_inventario: inv.id_inventario, id_detalle_inventario: inventarioDetalleId(inv) }
     try {
       const mov = await crear.mutateAsync(body)
       toast.success(

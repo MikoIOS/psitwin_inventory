@@ -1,0 +1,44 @@
+{
+  "engine": "AutoGluon TimeSeries",
+  "version": "1.6.1",
+  "model": "WeightedEnsemble",
+  "prediction_length": 90,
+  "frequency": "D",
+  "target": "cantidad",
+  "series_id": "str(id_almacen) + \"_\" + str(id_producto)",
+  "calendar": {
+    "is_campana_navidena": "1 if timestamp.month == 12 else 0"
+  },
+  "evaluation_only": true,
+  "refit_full": false,
+  "known_covariates": [
+    "month",
+    "day",
+    "dayofweek",
+    "is_weekend",
+    "dayofyear",
+    "weekofyear",
+    "quarter",
+    "is_campana_navidena"
+  ],
+  "wape_accumulated_pct": {
+    "1": 37.43124961280751,
+    "7": 18.266526768313007,
+    "30": 15.246988261968847,
+    "90": 14.984534921033656
+  },
+  "evaluation_series": 200,
+  "evaluation_cutoff": "2026-07-16",
+  "holdout_from": "2026-07-17",
+  "holdout_to": "2026-10-14",
+  "reference_history_from": "2023-10-15",
+  "reference_history_to": "2026-10-14",
+  "ensemble_dependencies": [
+    "DynamicOptimizedTheta",
+    "AutoETS",
+    "Chronos2",
+    "Toto2",
+    "DeepAR"
+  ],
+  "notebook": "No incluido; sem?ntica de calendario y series confirmada por el usuario."
+}

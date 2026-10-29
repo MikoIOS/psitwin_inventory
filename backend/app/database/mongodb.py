@@ -3,6 +3,7 @@
 from importlib import import_module
 from typing import Any
 from app.database.alerta_indexes import ensure_alerta_indexes
+from app.database.inventario_indexes import ensure_inventory_location_indexes
 
 
 try:
@@ -24,6 +25,21 @@ client: Any = None
 database: Any = None
 
 
+async def ensure_alert_indexes(db):
+    # Sensor identity includes device and parameter; inventory IDs may be null.
+    await db['alertas'].create_index(
+        [('id_dispositivo', 1), ('tipo_alerta', 1), ('parametro', 1)],
+        unique=True,
+        partialFilterExpression={'estado': {'$in': ['ACTIVA', 'VISTA']},
+                                 'origen': 'SENSOR', 'id_dispositivo': {'$type': 'string'}},
+        name='uq_alerta_activa_sensor_parametro')
+    # Preserve inventory uniqueness and remove the incompatible legacy index last.
+    await ensure_alerta_indexes(db['alertas'])
+    await db['alertas'].create_index([('id_empresa', 1), ('id_dispositivo', 1), ('fecha_creacion', -1)])
+    await db['alertas'].create_index([('id_empresa', 1), ('estado', 1), ('fecha_creacion', -1)])
+
+
+
 async def connect_to_mongo():
 
     global client
@@ -38,7 +54,10 @@ async def connect_to_mongo():
     try:
 
         client = AsyncIOMotorClient(
-            settings.mongodb_url
+            settings.mongodb_url,
+            serverSelectionTimeoutMS=10000,
+            connectTimeoutMS=10000,
+            socketTimeoutMS=10000,
         )
 
         database = client[
@@ -54,9 +73,7 @@ async def connect_to_mongo():
             name="uq_inventario_almacen")
         await database["inventarios"].create_index(
             [("id_inventario", 1)], unique=True, name="uq_inventario_id")
-        await database["detalles_inventario"].create_index(
-            [("id_inventario", 1), ("id_producto", 1), ("id_rack", 1)],
-            unique=True, name="uq_detalle_inventario_ubicacion")
+        await ensure_inventory_location_indexes(database["detalles_inventario"])
         await database["detalles_inventario"].create_index(
             [("id_detalle_inventario", 1)], unique=True, name="uq_detalle_inventario_id")
         await database["movimientos"].create_index(
@@ -69,11 +86,19 @@ async def connect_to_mongo():
             [("id_detalle_inventario", 1)], name="ix_recepcion_detalle_inventario")
         await database["inventario_historial"].create_index(
             [("id_inventario", 1), ("id_detalle_inventario", 1), ("fecha", -1)], name="ix_historial_inventario_v2")
-        await ensure_alerta_indexes(database["alertas"])
+        await ensure_alert_indexes(database)
+
         await database["recomendaciones"].create_index(
             [("id_inventario", 1), ("id_producto", 1), ("id_detalle_inventario", 1), ("tipo_recomendacion", 1)],
             unique=True, partialFilterExpression={"estado": {"$in": ["PENDIENTE", "ACEPTADA"]}},
             name="uq_recomendacion_pendiente_producto_ubicacion")
+
+        await database["reportes_inventario"].create_index("id_reporte", unique=True)
+        await database["reportes_inventario"].create_index([("id_empresa",1),("actor",1),("fecha_creacion",-1)])
+        await database["ofertas_proveedor"].create_index("id_oferta", unique=True)
+        await database["ofertas_proveedor"].create_index([("id_empresa", 1), ("id_proveedor", 1), ("id_producto", 1)], unique=True)
+        await database["niveles"].create_index([("id_rack", 1), ("numero", 1)], unique=True)
+        await database["niveles"].create_index([("id_rack", 1), ("codigo", 1)], unique=True)
 
         # Verificar conexión real
         await client.admin.command(

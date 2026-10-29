@@ -19,6 +19,7 @@ class TipoAlerta(str, Enum):
     PUERTA_ABIERTA = "PUERTA_ABIERTA"
     APERTURAS_EXCESIVAS = "APERTURAS_EXCESIVAS"
     SENSOR_SIN_DATOS = "SENSOR_SIN_DATOS"
+    LECTURA_DESACTUALIZADA = "LECTURA_DESACTUALIZADA"
 
 
 class NivelRiesgo(str, Enum):
@@ -103,8 +104,10 @@ class AlertaResponse(BaseModel):
     # Sensores
     # ------------------------------------------------------------
     id_dispositivo: Optional[str] = None
+    id_lectura: Optional[str] = None
     id_zona: Optional[str] = None
     id_rack: Optional[str] = None
+    codigo_rack: Optional[str] = None
     # t_int | t_amb | hum | corriente | puerta | aperturas_hora | conexion
     parametro: Optional[str] = None
     valor: Optional[float] = None

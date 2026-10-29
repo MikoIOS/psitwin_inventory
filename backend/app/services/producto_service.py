@@ -39,9 +39,25 @@ class ProductoService:
     # ============================================================
 
     @staticmethod
-    async def crear(
+    async def _crear(
         data: ProductoCreate
     ):
+        from app.services.clasificacion_service import validar_clasificacion, normalizar
+        from app.database.mongodb import get_database
+        from app.services.stock_lock import bloqueo_recurso
+        data.familia, data.categoria = await validar_clasificacion(data.id_empresa, data.familia, data.categoria)
+        if data.unidad == 'kg':
+            data.peso = 1
+        # Canonical products can be offered by several providers; supplier prices
+        # and stock never live in the master catalogue.
+        existing = await get_database().productos.find({'id_empresa': data.id_empresa}, {'_id': 0}).to_list(length=10000)
+        for row in existing:
+            if data.codigo and (row.get('codigo') or '').strip().upper() == data.codigo.strip().upper() and normalizar(row['nombre']) != normalizar(data.nombre):
+                raise HTTPException(409, 'El código del producto ya está registrado')
+            if normalizar(row['nombre']) == normalizar(data.nombre) and normalizar(row.get('marca') or '') == normalizar(data.marca or ''):
+                if row.get('unidad', 'unidad') != data.unidad or normalizar(row['familia']) != normalizar(data.familia) or normalizar(row['categoria']) != normalizar(data.categoria):
+                    raise HTTPException(409, 'Producto ya registrado con otra clasificación o unidad; identifique la variante')
+                return row
 
         # --------------------------------------------------------
         # VALIDAR EMPRESA
@@ -363,7 +379,7 @@ class ProductoService:
     # ============================================================
 
     @staticmethod
-    async def actualizar(
+    async def _actualizar(
         id_producto: str,
         data: ProductoUpdate
     ):
@@ -392,6 +408,23 @@ class ProductoService:
         )
 
         update_data.pop("stock", None)
+        from app.services.clasificacion_service import normalizar
+        from app.database.mongodb import get_database
+        if producto_actual.get('unidad') == 'kg' and 'peso' in update_data:
+            update_data['peso'] = 1
+        if any(k in update_data for k in ('nombre', 'marca', 'codigo')):
+            for other in await get_database()['productos'].find({'id_empresa': producto_actual['id_empresa'], 'id_producto': {'$ne': id_producto}}).to_list(length=None):
+                code = update_data.get('codigo', producto_actual.get('codigo'))
+                if code and (other.get('codigo') or '').strip().upper() == code.strip().upper():
+                    raise HTTPException(409, 'El código del producto ya está registrado')
+                if normalizar(other['nombre']) == normalizar(update_data.get('nombre', producto_actual['nombre'])) and normalizar(other.get('marca') or '') == normalizar(update_data.get('marca', producto_actual.get('marca')) or ''):
+                    raise HTTPException(409, 'Ya existe un producto equivalente en el catálogo')
+
+        from app.services.clasificacion_service import validar_clasificacion
+        if 'familia' in update_data or 'categoria' in update_data:
+            family, category = await validar_clasificacion(producto_actual['id_empresa'],
+                update_data.get('familia', producto_actual['familia']), update_data.get('categoria', producto_actual['categoria']))
+            update_data.update(familia=family, categoria=category)
 
 
         # --------------------------------------------------------
@@ -577,7 +610,7 @@ class ProductoService:
     # ============================================================
 
     @staticmethod
-    async def eliminar(
+    async def _eliminar(
         id_producto: str
     ):
 
@@ -597,6 +630,13 @@ class ProductoService:
                 detail="Producto no encontrado"
             )
 
+
+        from app.database.mongodb import get_database
+        db = get_database()
+        for collection in ('ofertas_proveedor', 'detalles_reposicion', 'detalles_inventario', 'movimientos'):
+            if await db[collection].find_one({'id_producto': id_producto}):
+                await ProductoRepository.actualizar(id_producto, {'activo': False, 'fecha_actualizacion': datetime.now(timezone.utc)})
+                return {'mensaje': 'Producto desactivado; se conserva su historial y sus referencias'}
 
         eliminado = await (
             ProductoRepository.eliminar(
@@ -621,3 +661,23 @@ class ProductoService:
             "mensaje":
                 "Producto eliminado correctamente"
         }
+
+    @staticmethod
+    async def crear(data):
+        from app.services.stock_lock import bloqueo_recurso
+        async with bloqueo_recurso('catalogo:' + str(data.id_empresa)):
+            return await ProductoService._crear(data)
+
+    @staticmethod
+    async def actualizar(identifier, data):
+        from app.services.stock_lock import bloqueo_recurso
+        product = await ProductoService.obtener_por_id(identifier)
+        async with bloqueo_recurso('catalogo:' + product['id_empresa']):
+            return await ProductoService._actualizar(identifier, data)
+
+    @staticmethod
+    async def eliminar(identifier):
+        from app.services.stock_lock import bloqueo_recurso
+        product = await ProductoService.obtener_por_id(identifier)
+        async with bloqueo_recurso('catalogo:' + product['id_empresa']):
+            return await ProductoService._eliminar(identifier)

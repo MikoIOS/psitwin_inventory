@@ -5,6 +5,7 @@ from typing import TypedDict
 class EmpresaDocument(TypedDict):
     id: str
     nombre: str
+    nombre_ceo: str | None
     sector: str
     correo: str
     telefono: str
@@ -19,7 +20,8 @@ def create_empresa_document(
     sector: str,
     correo: str,
     telefono: str,
-    password_hash: str
+    password_hash: str,
+    nombre_ceo: str | None = None
 ) -> EmpresaDocument:
 
     ahora = datetime.now(timezone.utc)
@@ -27,6 +29,7 @@ def create_empresa_document(
     return EmpresaDocument(
         id=id_empresa,
         nombre=nombre,
+        nombre_ceo=nombre_ceo,
         sector=sector,
         correo=correo,
         telefono=telefono,

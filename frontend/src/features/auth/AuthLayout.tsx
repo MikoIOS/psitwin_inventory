@@ -4,7 +4,7 @@ import { Brand } from '@/components/layout/Brand'
 /** Layout de login/registro: panel de marca a la izquierda (≥ lg) y formulario a la derecha. */
 export function AuthLayout({ title, subtitle, children, footer }: { title: string; subtitle?: ReactNode; children: ReactNode; footer?: ReactNode }) {
   return (
-    <div className="grid min-h-dvh bg-bg lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+    <div className="auth-theme grid min-h-dvh bg-bg text-fg lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
       <aside className="relative hidden overflow-hidden bg-sidebar text-sidebar-fg lg:flex lg:flex-col lg:justify-between lg:p-12">
         <div className="hazard-stripe absolute inset-x-0 top-0 h-2" aria-hidden="true" />
         <Brand />

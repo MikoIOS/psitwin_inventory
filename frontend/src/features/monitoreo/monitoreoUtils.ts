@@ -25,6 +25,7 @@ const ETIQUETA_ALERTA: Record<string, string> = {
   PUERTA_ABIERTA: 'Puerta abierta',
   APERTURAS_EXCESIVAS: 'Aperturas excesivas',
   SENSOR_SIN_DATOS: 'Sensor sin datos',
+  LECTURA_DESACTUALIZADA: 'Lectura desactualizada',
 }
 export const etiquetaAlerta = (tipo: string) => ETIQUETA_ALERTA[tipo] ?? tipo
 
@@ -73,7 +74,7 @@ export function alertaDe(alertas: Alerta[], p: Parametro | 'puerta'): Alerta | u
 
 export function sinDatos(e: EstadoDispositivo | undefined, ahora: number): boolean {
   const ts = e?.ultima_lectura?.ts
-  return !e?.conectado || !ts || ahora - ms(ts) > SIN_DATOS_MS
+  return !e?.conectado || !ts || Math.abs(ahora - ms(ts)) > (e.max_edad_lectura_s ?? SIN_DATOS_MS / 1000) * 1000
 }
 
 export function estadoParametro(
@@ -85,6 +86,7 @@ export function estadoParametro(
 ): EstadoSensor {
   if (e && alertaDe(e.alertas_abiertas, p)) return 'alerta'
   if (sinDatos(e, ahora)) return 'sin_datos'
+  if (e?.ultima_lectura?.[p] == null) return 'sin_datos'
   if (p === 'puerta') {
     const desde = e?.puerta_abierta_desde
     const max = d.limites_efectivos?.puerta?.max_abierta_s ?? d.limites?.puerta?.max_abierta_s ?? 60
@@ -99,6 +101,7 @@ export function estadoDispositivo(d: Pick<Dispositivo, 'limites' | 'limites_efec
   if (e?.alertas_abiertas.length) return 'alerta'
   if (sinDatos(e, ahora)) return 'sin_datos'
   return (['t_int', 't_amb', 'hum', 'corriente', 'puerta'] as const)
+    .filter(p => e?.ultima_lectura?.[p] != null)
     .map((p) => estadoParametro(d, e, p, ahora, rack))
     .reduce((a, b) => (GRAVEDAD[b] > GRAVEDAD[a] ? b : a), 'normal' as EstadoSensor)
 }

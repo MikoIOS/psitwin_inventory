@@ -191,10 +191,10 @@ class RecepcionMercaderiaService:
         for detalle in data.detalles:
             accepted = 0 if detalle.estado_recepcion.value == "EN_EVALUACION" else detalle.cantidad_recibida-detalle.cantidad_rechazada
             line = detalle.id_detalle_reposicion
-            aceptada_por_linea[line] = aceptada_por_linea.get(line,0)+accepted
+            aceptada_por_linea[line] = round(aceptada_por_linea.get(line,0)+accepted, 3)
         for line,accepted in aceptada_por_linea.items():
             previous = await self.detalle_recepcion_repository.obtener_por_detalle_reposicion(line)
-            if sum(d.get("cantidad_aceptada",0) for d in previous)+accepted > detalles_orden[line]["cantidad_solicitada"]:
+            if round(sum(d.get("cantidad_aceptada",0) for d in previous)+accepted, 3) > detalles_orden[line]["cantidad_solicitada"]:
                 raise HTTPException(409,"La cantidad aceptada supera la pendiente de la orden")
 
         racks: dict = {}
@@ -284,6 +284,10 @@ class RecepcionMercaderiaService:
         recepcion = await self.repository.crear(
             data.model_dump()
         )
+        from hashlib import sha256
+        await db["recepciones_mercaderia"].update_one({'id_recepcion': recepcion['id_recepcion']},
+            {'$set': {'firma': sha256(data.model_dump_json(exclude={'clave_idempotencia', 'id_operario'}).encode()).hexdigest(),
+                      'procesamiento': 'EN_PROCESO'}})
 
         for detalle in data.detalles:
             await self.detalle_recepcion_service.crear(
@@ -353,4 +357,47 @@ class RecepcionMercaderiaService:
     async def crear(self, data, user):
         from app.services.stock_lock import bloqueo_orden
         async with bloqueo_orden(data.id_orden_reposicion):
-            return await self._crear(data,user)
+            from hashlib import sha256
+            from app.services.oferta_service import miles
+            from app.services.abastecimiento_service import event, AbastecimientoService
+            order = await AccesoService.verificar_orden(user, data.id_orden_reposicion)
+            signature = sha256(data.model_dump_json(exclude={'clave_idempotencia', 'id_operario'}).encode()).hexdigest()
+            key = data.clave_idempotencia or signature
+            previous = await get_database()["recepciones_mercaderia"].find_one({'id_orden_reposicion': data.id_orden_reposicion, 'clave_idempotencia': key})
+            if previous:
+                if previous.get('firma') != signature:
+                    raise HTTPException(409, 'La clave de recepción ya corresponde a otro contenido')
+                if previous.get('procesamiento') != 'COMPLETA':
+                    raise HTTPException(409, 'La recepción requiere reconciliación; no se vuelve a ingresar stock')
+                return await self.obtener_por_id(previous['id_recepcion'])
+            if (order.get('resolucion_pendiente') or {}).get('decision') == 'CERRAR':
+                raise HTTPException(409, 'La empresa cerró el pendiente de esta solicitud')
+            dispatched = order.get('despachos') or ([order['despacho']] if order.get('despacho') else [])
+            if not dispatched:
+                raise HTTPException(409, 'Debe registrarse un despacho antes de recibir mercancía')
+            by_line = {}
+            for dispatch in dispatched:
+                for line in dispatch['lineas']:
+                    by_line[line['id_detalle_reposicion']] = round(by_line.get(line['id_detalle_reposicion'], 0) + line['cantidad'], 3)
+            grouped = {}
+            for detail in data.detalles:
+                requested_line = await self.detalle_repository.obtener_por_id(detail.id_detalle_reposicion)
+                unit = (requested_line or {}).get('unidad', 'unidad')
+                miles(detail.cantidad_recibida, unit)
+                miles(detail.cantidad_rechazada, unit)
+                grouped[detail.id_detalle_reposicion] = round(grouped.get(detail.id_detalle_reposicion, 0) + detail.cantidad_recibida, 3)
+            for identifier, quantity in grouped.items():
+                line = await self.detalle_repository.obtener_por_id(identifier)
+                miles(quantity, (line or {}).get('unidad', 'unidad'))
+                received = sum(r.get('cantidad_recibida', 0) for r in await self.detalle_recepcion_repository.obtener_por_detalle_reposicion(identifier))
+                if miles(round(received + quantity, 3)) > miles(by_line.get(identifier, 0)):
+                    raise HTTPException(409, 'La cantidad recibida acumulada supera la despachada')
+            data.clave_idempotencia = key
+            result = await self._crear(data, user)
+            await get_database()["recepciones_mercaderia"].update_one({'id_recepcion': result['id_recepcion']},
+                {'$set': {'clave_idempotencia': key, 'firma': signature, 'procesamiento': 'COMPLETA'}})
+            await get_database()["ordenes_reposicion"].update_one({'id_orden_reposicion': data.id_orden_reposicion},
+                {'$push': {'historial_estados': event(order['estado'], (await AbastecimientoService.obtener(data.id_orden_reposicion))['estado'], user,
+                    reason='Recepción confirmada', quantities=[d.model_dump() for d in data.detalles])}})
+            result['comparacion'] = [r for r in await AbastecimientoService.pendientes(user) if r['id_orden'] == data.id_orden_reposicion]
+            return result

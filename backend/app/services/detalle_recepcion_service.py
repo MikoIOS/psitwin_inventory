@@ -290,9 +290,11 @@ class DetalleRecepcionService:
         # 8. EVITAR SOBRERECEPCION
         # ====================================================
 
-        cantidad_total_aceptada = (
+        cantidad_aceptada = round(cantidad_aceptada, 3)
+        cantidad_aceptada_anterior = round(cantidad_aceptada_anterior, 3)
+        cantidad_total_aceptada = round(
             cantidad_aceptada_anterior
-            + cantidad_aceptada
+            + cantidad_aceptada, 3
         )
 
         if (
@@ -575,7 +577,7 @@ class DetalleRecepcionService:
             else recibida - rechazada
         )
 
-        if aceptada < 0 or rechazada < 0 or aceptada + rechazada != recibida:
+        if aceptada < 0 or rechazada < 0 or round(aceptada + rechazada, 3) != round(recibida, 3):
             raise HTTPException(
                 status_code=400,
                 detail="Las cantidades aceptada y rechazada no coinciden con la recibida"
@@ -584,7 +586,7 @@ class DetalleRecepcionService:
         anteriores = await self.repository.obtener_por_detalle_reposicion(detalle["id_detalle_reposicion"])
         aceptado_otros = sum(item.get("cantidad_aceptada", 0) for item in anteriores
                              if item["id_detalle_recepcion"] != id_detalle_recepcion)
-        if aceptado_otros + aceptada > linea["cantidad_solicitada"]:
+        if round(aceptado_otros + aceptada, 3) > linea["cantidad_solicitada"]:
             raise HTTPException(409, "La cantidad aceptada supera la pendiente de la orden")
 
         riesgo_antes = await self._obtener_riesgo(
@@ -775,8 +777,8 @@ class DetalleRecepcionService:
         # ====================================================
 
         if (
-            total_aceptado
-            >= total_solicitado
+            round(total_aceptado, 3)
+            >= round(total_solicitado, 3)
         ):
 
             nuevo_estado = "RECIBIDA"
@@ -878,11 +880,13 @@ class DetalleRecepcionService:
                 raise HTTPException(409, "Detalle incompatible con inventario/producto")
             if rack_id and rack_id != detalle["id_rack"]:
                 raise HTTPException(409, "El rack no coincide con el detalle")
+            if getattr(data, 'id_nivel', None) and data.id_nivel != detalle.get('id_nivel'):
+                raise HTTPException(409, 'El nivel no coincide con el detalle')
             rack_id = detalle["id_rack"]
         else:
             if not rack_id:
                 raise HTTPException(422, "Indique id_detalle_inventario o id_rack")
-            detalle = await self.inventario_repository.obtener_combinacion(data.id_inventario, id_producto, rack_id)
+            detalle = await self.inventario_repository.obtener_combinacion(data.id_inventario, id_producto, rack_id, getattr(data, 'id_nivel', None))
         rack = await self.rack_repository.obtener_por_id(rack_id)
         zona = await self.zona_repository.obtener_por_id(rack["id_zona"]) if rack else None
         if not zona or zona["id_almacen"] != header["id_almacen"]:
@@ -892,10 +896,11 @@ class DetalleRecepcionService:
         if detalle:
             return detalle
         maximum = getattr(data, "stock_maximo", None)
-        if maximum is None:
-            raise HTTPException(422, "stock_maximo es obligatorio para una nueva ubicación")
+        if user and user.es_operario and (getattr(data, 'stock_minimo', 0) != 0 or maximum not in (None, 0)):
+            raise HTTPException(403, 'Solo la empresa puede definir los umbrales de inventario')
+        maximum = maximum if maximum is not None else 0
         request = DetalleInventarioCreate(id_inventario=data.id_inventario,
-            id_producto=id_producto, id_rack=rack_id, stock_actual=0,
+            id_producto=id_producto, id_rack=rack_id, id_nivel=getattr(data, 'id_nivel', None), stock_actual=0,
             stock_minimo=getattr(data, "stock_minimo", 0), stock_maximo=maximum)
         await RackService.validar_asignacion(rack, producto, 0)
         if not crear:
@@ -905,7 +910,7 @@ class DetalleRecepcionService:
         except HTTPException as exc:
             if exc.status_code != 409:
                 raise
-            concurrent = await self.inventario_repository.obtener_combinacion(data.id_inventario, id_producto, rack_id)
+            concurrent = await self.inventario_repository.obtener_combinacion(data.id_inventario, id_producto, rack_id, getattr(data, "id_nivel", None))
             if not concurrent:
                 raise
             return concurrent

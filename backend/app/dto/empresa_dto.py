@@ -3,8 +3,10 @@ from pydantic import (
     EmailStr,
     Field
 )
+from pydantic import field_validator
 
 from typing import Optional
+from datetime import datetime
 
 
 # ============================================================
@@ -12,6 +14,13 @@ from typing import Optional
 # ============================================================
 
 class EmpresaRegisterRequest(BaseModel):
+
+    nombre_ceo: str = Field(..., min_length=1, max_length=100)
+
+    @field_validator('nombre_ceo', mode='before')
+    @classmethod
+    def validar_nombre_ceo(cls, value):
+        return value.strip() if isinstance(value, str) else value
 
     nombre: str = Field(
         ...,
@@ -66,6 +75,13 @@ class EmpresaLoginRequest(BaseModel):
 # ============================================================
 
 class EmpresaUpdateRequest(BaseModel):
+
+    nombre_ceo: Optional[str] = Field(default=None, min_length=1, max_length=100)
+
+    @field_validator('nombre_ceo', mode='before')
+    @classmethod
+    def validar_nombre_ceo(cls, value):
+        return value.strip() if isinstance(value, str) else value
 
     nombre: Optional[str] = Field(
         default=None,
@@ -133,6 +149,9 @@ class EmpresaDeleteRequest(BaseModel):
 # ============================================================
 
 class EmpresaResponse(BaseModel):
+    password_local_habilitada: bool = True
+
+    nombre_ceo: Optional[str] = None
 
     id_empresa: str
 
@@ -149,6 +168,11 @@ class EmpresaResponse(BaseModel):
     correo_verificado: bool = False
 
     fecha_verificacion_correo: Optional[str] = None
+
+    @field_validator('fecha_verificacion_correo', 'fecha_creacion', 'fecha_actualizacion', mode='before')
+    @classmethod
+    def serialize_verification_date(cls, value):
+        return value.isoformat() if isinstance(value, datetime) else value
 
     fecha_creacion: str
 

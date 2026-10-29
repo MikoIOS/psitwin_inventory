@@ -4,6 +4,7 @@ from enum import Enum
 from pydantic import (
     BaseModel,
     Field,
+    field_validator,
     model_validator
 )
 
@@ -12,6 +13,8 @@ class EstadoRack(str, Enum):
     DISPONIBLE = "DISPONIBLE"
     LLENO = "LLENO"
     MANTENIMIENTO = "MANTENIMIENTO"
+    INACTIVO = "INACTIVO"
+    ARCHIVADO = "ARCHIVADO"
 
 
 def _validar_rango(modelo):
@@ -40,6 +43,15 @@ def _validar_rango(modelo):
 # ============================================================
 
 class RackCreate(BaseModel):
+    tipo_rack: str | None = Field(default=None, min_length=1, max_length=100)
+
+    @field_validator('tipo_rack')
+    @classmethod
+    def validar_tipo(cls, value):
+        if value is not None and not value.strip():
+            raise ValueError('Indique un tipo de rack válido')
+        return value.strip() if value else value
+    max_niveles: int = Field(default=1, ge=1, le=1000)
     id_zona: str
 
     codigo: str = Field(
@@ -47,7 +59,7 @@ class RackCreate(BaseModel):
         max_length=50
     )
 
-    nivel: int = Field(
+    nivel: int = Field(default=1,
         ge=1
     )
 
@@ -73,6 +85,13 @@ class RackCreate(BaseModel):
 # ============================================================
 
 class RackUpdate(BaseModel):
+    tipo_rack: str | None = Field(default=None, min_length=1, max_length=100)
+
+    @field_validator('tipo_rack')
+    @classmethod
+    def validar_tipo(cls, value):
+        return RackCreate.validar_tipo(value)
+    max_niveles: int | None = Field(default=None, ge=1, le=1000)
 
     estado: EstadoRack | None = None
 
@@ -86,6 +105,8 @@ class RackUpdate(BaseModel):
 
 
 class RackResponse(BaseModel):
+    tipo_rack: str | None = None
+    max_niveles: int = 1
     id_rack: str
     id_zona: str
 

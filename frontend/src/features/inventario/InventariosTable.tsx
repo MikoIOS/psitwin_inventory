@@ -1,3 +1,4 @@
+import { inventarioDetalleId } from '@/api/inventarios'
 /**
  * Tabla de inventarios. Todos ven «Historial» (quién lo creó / cambió límites + movimientos con autor).
  * Solo el OPERARIO tiene además: registrar salida, editar mínimo/máximo y eliminar (409 si aún tiene stock).
@@ -39,7 +40,7 @@ export function InventariosTable({ data, caption, loading, error, onRetry, empty
   const eliminar = useDeleteInventario()
   const productoPorId = new Map((productos.data ?? []).map((p) => [p.id_producto, p]))
 
-  const { esOperario } = useRol()
+  const { esOperario, esEmpresa } = useRol()
   const [historial, setHistorial] = useState<Inventario | null>(null)
   const [movimiento, setMovimiento] = useState<Inventario | null>(null)
   const [editando, setEditando] = useState<Inventario | null>(null)
@@ -99,7 +100,7 @@ export function InventariosTable({ data, caption, loading, error, onRetry, empty
   const confirmarEliminar = () => {
     if (!aEliminar) return
     setErrorEliminar(null)
-    eliminar.mutate(aEliminar.id_inventario, {
+    eliminar.mutate(inventarioDetalleId(aEliminar), {
       onSuccess: () => {
         setAEliminar(null)
         toast.success('Inventario eliminado')
@@ -120,19 +121,19 @@ export function InventariosTable({ data, caption, loading, error, onRetry, empty
         error={error}
         {...(onRetry ? { onRetry } : {})}
         empty={empty}
-        rowKey={(inv) => inv.id_detalle_inventario ?? inv.id_inventario}
+        rowKey={inventarioDetalleId}
         columns={columnas}
         actions={(inv) => (
           <>
             <Button size="sm" variant="ghost" icon="clipboard" onClick={() => setHistorial(inv)} aria-label={`Historial de ${nombreProducto(inv)}`}>
               Historial
             </Button>
+            {esEmpresa && <Button size="sm" variant="ghost" icon="edit" iconOnly aria-label={`Editar límites de ${nombreProducto(inv)}`} onClick={() => setEditando(inv)} />}
             {esOperario && (
               <>
                 <Button size="sm" variant="secondary" icon="arrows" onClick={() => setMovimiento(inv)}>
                   Salida
                 </Button>
-                <Button size="sm" variant="ghost" icon="edit" iconOnly aria-label={`Editar límites de ${nombreProducto(inv)}`} onClick={() => setEditando(inv)} />
                 <Button
                   size="sm"
                   variant="ghost"
@@ -220,7 +221,7 @@ function resumenCambio(antes: Record<string, unknown> | null, despues: Record<st
 
 /** Quién creó / cambió los límites del inventario y sus movimientos de stock (autor, antes → después). */
 function HistorialInventario({ inventario }: { inventario: Inventario }) {
-  const histQ = useInventarioHistorial(inventario.id_inventario)
+  const histQ = useInventarioHistorial(inventarioDetalleId(inventario))
   const movQ = useMovimientosPorInventario(inventario.id_inventario)
   const cambios = [...(histQ.data ?? [])].sort((a, b) => b.fecha.localeCompare(a.fecha))
   return (
@@ -251,7 +252,7 @@ function HistorialInventario({ inventario }: { inventario: Inventario }) {
         </h3>
         <MovimientosTable
           caption="Movimientos del inventario"
-          data={movQ.data}
+          data={movQ.data?.filter(m => m.id_detalle_inventario ? m.id_detalle_inventario === inventarioDetalleId(inventario) : m.id_producto === inventario.id_producto && m.id_rack === inventario.id_rack)}
           ocultarProducto
           loading={movQ.isLoading}
           error={movQ.error}

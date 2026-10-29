@@ -29,12 +29,12 @@ export function useContextoMovimientos() {
   const operarios = useOperarios()
   const ub = useUbicaciones()
 
-  const inventarioPorId = new Map((inventarios.data ?? []).map((i) => [i.id_inventario, i]))
+  const inventarioPorId = new Map((inventarios.data ?? []).map((i) => [i.id_detalle_inventario ?? i.id_inventario, i]))
   const productoPorId = new Map((productos.data ?? []).map((p) => [p.id_producto, p]))
   const operarioPorId = new Map((operarios.data ?? []).map((o) => [o.id_operario, o]))
 
   const contexto = (m: Movimiento): ContextoMovimiento => {
-    const inventario = inventarioPorId.get(m.id_inventario)
+    const inventario = inventarioPorId.get(m.id_detalle_inventario ?? m.id_inventario)
     const idProducto = m.id_producto ?? inventario?.id_producto
     const idRack = m.id_rack ?? inventario?.id_rack
     return {
@@ -47,7 +47,7 @@ export function useContextoMovimientos() {
 
   /** El backend no filtra por empresa: se acota por el rack del movimiento (o, en su defecto, por el operario). */
   const perteneceAEmpresa = (m: Movimiento): boolean => {
-    const idRack = m.id_rack ?? inventarioPorId.get(m.id_inventario)?.id_rack
+    const idRack = m.id_rack ?? inventarioPorId.get(m.id_detalle_inventario ?? m.id_inventario)?.id_rack
     if (idRack && ub.perteneceAEmpresa(idRack)) return true
     return !!m.id_operario && operarioPorId.has(m.id_operario)
   }

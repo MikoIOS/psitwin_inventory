@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from typing import (
     List,
     Optional
@@ -84,12 +85,18 @@ async def crear_dispositivo(
 )
 async def listar_dispositivos(
     id_zona: Optional[str] = Query(default=None),
+    id_almacen: Optional[str] = Query(default=None),
+    id_rack: Optional[str] = Query(default=None),
+    tipo: Optional[Literal['t_int', 't_amb', 'hum', 'corriente', 'puerta']] = Query(default=None),
     user: UsuarioActual = Depends(require_empresa_u_operario)
 ):
 
     return await DispositivoService.listar(
         user,
-        id_zona
+        id_zona,
+        id_almacen,
+        id_rack,
+        tipo
     )
 
 
@@ -166,6 +173,9 @@ async def obtener_lecturas(
     id_dispositivo: str,
     desde: Optional[datetime] = Query(default=None),
     hasta: Optional[datetime] = Query(default=None),
+    pagina: int = Query(default=1, ge=1, le=10000),
+    limite: int = Query(default=2000, ge=1, le=2000),
+    tipo: Optional[Literal['t_int', 't_amb', 'hum', 'corriente', 'puerta']] = Query(default=None),
     user: UsuarioActual = Depends(require_empresa_u_operario)
 ):
 
@@ -173,5 +183,8 @@ async def obtener_lecturas(
         id_dispositivo,
         user,
         desde,
-        hasta
+        hasta,
+        pagina,
+        limite,
+        tipo
     )

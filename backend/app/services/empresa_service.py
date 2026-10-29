@@ -57,16 +57,7 @@ def hash_password(
     password: str
 ) -> str:
 
-    hashed = bcrypt.hashpw(
-        password.encode(
-            "utf-8"
-        ),
-        bcrypt.gensalt()
-    )
-
-    return hashed.decode(
-        "utf-8"
-    )
+    return security.hash_password(password)
 
 
 def verify_password(
@@ -74,20 +65,7 @@ def verify_password(
     hashed_password: str
 ) -> bool:
 
-    try:
-
-        return bcrypt.checkpw(
-            plain_password.encode(
-                "utf-8"
-            ),
-            hashed_password.encode(
-                "utf-8"
-            )
-        )
-
-    except Exception:
-
-        return False
+    return security.verify_password(plain_password, hashed_password)
 
 
 # ============================================================
@@ -268,6 +246,7 @@ async def register_empresa(
     ).isoformat()
 
     empresa = {
+        "requiere_verificacion_registro": True,
 
         "id_empresa":
             str(
@@ -276,6 +255,8 @@ async def register_empresa(
 
         "nombre":
             data.nombre.strip(),
+
+        "nombre_ceo": data.nombre_ceo,
 
         "ruc":
             ruc,
@@ -314,9 +295,13 @@ async def register_empresa(
         )
     )
 
-    return sanitize_empresa(
-        created
-    )
+    from app.services.welcome_email_service import WelcomeEmailService
+    import logging
+    try:
+        await WelcomeEmailService().enqueue(created)
+    except Exception:
+        logging.getLogger(__name__).error('welcome_enqueue_failed empresa=%s', created['id_empresa'])
+    return sanitize_empresa(created)
 
 
 # ============================================================
@@ -374,6 +359,9 @@ async def login_empresa(
                 "Correo o contraseña incorrectos"
             )
         )
+
+    if empresa.get('requiere_verificacion_registro') is True and empresa.get('correo_verificado') is not True:
+        raise HTTPException(403, 'Verifica tu correo antes de iniciar sesión.')
 
     token = create_access_token(
         empresa[
@@ -572,6 +560,7 @@ async def update_empresa_profile(
 
     for field in [
         "nombre",
+        "nombre_ceo",
         "sector",
         "telefono"
     ]:

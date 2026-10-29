@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from 'react-router'
 import { ApiError } from '@/api/client'
 import { SessionProvider } from '@/auth/SessionContext'
@@ -6,6 +6,9 @@ import { ToastProvider } from '@/components/ui'
 import { router } from '@/routes'
 
 export const queryClient = new QueryClient({
+  mutationCache: new MutationCache({ onSuccess: () => {
+    void queryClient.invalidateQueries({ queryKey: ['plano'] })
+  } }),
   defaultOptions: {
     queries: {
       staleTime: 30_000,

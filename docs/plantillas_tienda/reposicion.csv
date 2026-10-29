@@ -1,0 +1,2 @@
+﻿"origen_datos","pedido_codigo","sku_tienda","proveedor_codigo","fecha_necesidad","fecha_pedido","fecha_prometida","fecha_recepcion","cantidad_pedida_base","cantidad_recibida_base","frecuencia_compra_dias","estado"
+"SIMULADO","PED-001","PIL-001","PROV-01","2026-10-23","2026-10-24","2026-10-26","2026-10-26","24","24","7","RECIBIDO"

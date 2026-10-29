@@ -6,6 +6,7 @@ export interface NavItem {
   to: string
   label: string
   icon: IconName
+  subtitle?: string
   /** Solo activo en coincidencia exacta (para "/"). */
   end?: boolean
   /** Grupo visual en el sidebar. */
@@ -30,7 +31,9 @@ export const NAV_ITEMS: NavItem[] = [
   { to: paths.inventario, label: 'Inventario', icon: 'layers', grupo: 'operacion', roles: [E, O] },
   { to: paths.movimientos, label: 'Movimientos', icon: 'arrows', grupo: 'operacion', roles: [E, O] },
   { to: paths.monitoreo, label: 'Monitoreo', icon: 'snowflake', grupo: 'operacion', roles: [E, O] },
-  { to: paths.saiki, label: 'Saiki (asistente)', icon: 'info', grupo: 'operacion', roles: [E] },
+  { to: paths.analisis, label: 'Análisis', icon: 'chart', grupo: 'operacion', roles: [E, O] },
+  { to: paths.saiki, label: 'Saiki', subtitle: 'Asistente IA', icon: 'psi', grupo: 'operacion', roles: [E, O] },
+  { to: paths.abastecimiento, label: 'Abastecimiento', icon: 'truck', grupo: 'reposicion', roles: [E, O, P] },
   { to: paths.operarios, label: 'Operarios', icon: 'users', grupo: 'operacion', roles: [E] },
   { to: paths.proveedores, label: 'Proveedores', icon: 'truck', grupo: 'reposicion', roles: [E] },
   { to: paths.ordenes, label: 'Solicitudes de reposición', icon: 'clipboard', grupo: 'reposicion', roles: [E, O] },

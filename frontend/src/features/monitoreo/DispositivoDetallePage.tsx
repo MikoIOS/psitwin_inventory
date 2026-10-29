@@ -21,6 +21,7 @@ const PERIODOS = [
   { value: '6', label: 'Últimas 6 horas' },
   { value: '24', label: 'Últimas 24 horas' },
   { value: '168', label: 'Últimos 7 días' },
+  { value: '720', label: 'Últimos 30 días' },
 ]
 
 export default function DispositivoDetallePage() {
@@ -157,7 +158,7 @@ export default function DispositivoDetallePage() {
         <Card
           padding="md"
           title="Historial"
-          description="Línea punteada roja: límites configurados."
+          description="Línea punteada roja: límites configurados. Hasta 2000 puntos de la primera página; para navegar el historial completo y elegir fechas, usa Monitoreo por rack."
           actions={
             <Select
               aria-label="Periodo"

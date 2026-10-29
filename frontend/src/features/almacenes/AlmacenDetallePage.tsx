@@ -111,6 +111,7 @@ function Contenido({ almacen }: { almacen: Almacen }) {
           : {})}
       />
 
+      <div className="mb-5"><LinkButton to={paths.plano(almacen.id_almacen)}>Plano del almacén</LinkButton></div>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <ZonasSection idAlmacen={almacen.id_almacen} onNueva={() => setZonaForm({ zona: null })} onEditar={(zona) => setZonaForm({ zona })} />
 

@@ -1,0 +1,78 @@
+import { test, expect, type Page } from '@playwright/test'
+const api = 'http://127.0.0.1:18080'
+const email = 'psitwin.browser.test@gmail.com'
+const password = 'PsiTwin-browser-2026'
+const details = { nombre: 'Empresa navegador', nombre_ceo: 'Carlos', ruc: '20100070970', sector: 'Alimentos', telefono: '987654321', correo: email }
+test.beforeEach(async ({ request }) => { expect((await request.post(`${api}/__test/reset`)).ok()).toBeTruthy() })
+async function fill(page: Page) {
+  await page.goto('/registro')
+  for (const [name, value] of Object.entries(details)) await page.locator(`input[name="${name}"]`).fill(value)
+  await page.locator('input[name=password]').fill(password)
+  await page.locator('input[name=confirmar]').fill(password)
+}
+async function login(page: Page) {
+  await page.goto('/login')
+  await expect(page.getByRole('button', { name: /Google/ })).toHaveCount(0)
+  await page.locator('input[name=correo]').fill(email)
+  await page.locator('input[name=password]').fill(password)
+  await page.getByRole('button', { name: 'Ingresar', exact: true }).click()
+}
+async function logout(page: Page) {
+  const menu = page.getByRole('button', { name: 'Abrir menú', exact: true })
+  if (await menu.isVisible()) await menu.click()
+  await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click()
+}
+test('register, email link, welcome, login, dashboard, persistence, logout and duplicates without OAuth', async ({ page, request }) => {
+  await fill(page)
+  await expect(page.getByRole('button', { name: /Google/ })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Registrar empresa', exact: true }).click()
+  await expect(page.locator('p[role=status]').filter({ hasText: 'Revisa tu Gmail' })).toBeVisible()
+  let state = await (await request.get(`${api}/__test/status`)).json()
+  expect(state).toMatchObject({ companies: 1, sent: 1, google_linked: false, argon2id: true })
+  const link = (await (await request.get(`${api}/__test/verification-link`)).json()).url
+  expect(link).toContain('/verificar-correo#token=')
+  await login(page)
+  await expect(page.getByText(/Verifica tu correo antes/)).toBeVisible()
+  await page.goto(link)
+  await expect(page.getByRole('heading', { name: 'Verificar correo', exact: true })).toBeVisible()
+  expect(page.url()).not.toContain('token=')
+  await page.getByRole('button', { name: 'Verificar correo y activar cuenta' }).click()
+  await expect(page.getByRole('status')).toContainText('Tu cuenta está activa')
+  state = await (await request.get(`${api}/__test/status`)).json()
+  expect(state).toMatchObject({ companies: 1, sent: 2, personalized: true })
+  await login(page)
+  await expect(page.getByRole('heading', { name: 'Almacenes', exact: true })).toBeVisible()
+  await request.post(`${api}/__test/bson-dates`)
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Almacenes', exact: true })).toBeVisible()
+  await logout(page)
+  await page.goto('/perfil')
+  await expect(page).toHaveURL(/\/login/)
+  const duplicate = await request.post(`${api}/api/v1/auth/register`, { data: { ...details, password, password_confirmation: password } })
+  expect(duplicate.status()).toBe(409)
+  await page.goto(link)
+  await page.getByRole('button', { name: 'Verificar correo y activar cuenta' }).click()
+  await expect(page.getByRole('alert')).toBeVisible()
+  expect((await (await request.get(`${api}/__test/status`)).json()).sent).toBe(2)
+})
+test('responsive form, password visibility, mismatch validation and resend', async ({ page, request }, info) => {
+  await fill(page)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.getByRole('button', { name: 'Mostrar contraseña', exact: true }).click()
+  await expect(page.locator('input[name=password]')).toHaveAttribute('type', 'text')
+  await page.getByRole('button', { name: 'Ocultar contraseña', exact: true }).click()
+  await page.locator('input[name=confirmar]').fill('different-password')
+  await page.getByRole('button', { name: 'Registrar empresa', exact: true }).click()
+  await expect(page.getByText('Las contraseñas no coinciden')).toBeVisible()
+  expect((await (await request.get(`${api}/__test/status`)).json()).companies).toBe(0)
+  await page.locator('input[name=confirmar]').fill(password)
+  await page.screenshot({ path: `../artifacts/auth-browser.local/registro-smtp-${info.project.name}.png`, fullPage: true, mask: [page.locator('input[name=password]'), page.locator('input[name=confirmar]')] })
+  await page.getByRole('button', { name: 'Registrar empresa', exact: true }).click()
+  await expect(page.locator('p[role=status]').filter({ hasText: 'Revisa tu Gmail' })).toBeVisible()
+  await page.getByRole('button', { name: 'Reenviar enlace de verificación' }).click()
+  await expect(page.getByText(/Si hay una cuenta pendiente/)).toBeVisible()
+  expect((await (await request.get(`${api}/__test/status`)).json()).sent).toBe(1)
+  await request.post(`${api}/__test/allow-resend`)
+  await page.getByRole('button', { name: 'Reenviar enlace de verificación' }).click()
+  await expect.poll(async () => (await (await request.get(`${api}/__test/status`)).json()).sent).toBe(2)
+})

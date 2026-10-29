@@ -10,14 +10,17 @@ import { useId } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { ESTADO_RACK_OPCIONES, ESTADOS_RACK_EDITABLES } from '@/api/enums'
-import { useCreateRack, useUpdateRack } from '@/api/racks'
+import { useCreateRack, useUpdateRack, useRacks } from '@/api/racks'
 import type { EstadoRackEditable, Rack } from '@/api/types'
 import { Button, Field, Input, Modal, Select, useApiErrorHandler, useToast } from '@/components/ui'
 import { MSG, numero, numeroOpcional, numStr, texto } from '@/lib/zod'
+import { useRol } from '@/auth/useRol'
 
 const esquema = (editando: boolean, refrigerada: boolean) =>
   z
     .object({
+      tipo_rack: texto({ max: 100 }),
+      max_niveles: numero({ min: 1, entero: true }),
       codigo: editando ? z.string() : texto({ max: 50 }).transform((v) => v.toUpperCase()),
       nivel: editando ? z.string().transform(Number) : numero({ min: 1, entero: true }),
       capacidad: editando ? z.string().transform(Number) : numero({ mayorQue: 0 }),
@@ -61,10 +64,12 @@ export function RackFormModal(props: RackFormModalProps) {
 }
 
 function RackFormModalAbierto({ open, idZona, rack, refrigerada, niveles, nivelesOcupados, onClose, onGuardado }: RackFormModalProps) {
-  const libres = Array.from({ length: niveles }, (_, i) => i + 1).filter((n) => !nivelesOcupados.includes(n))
+  const libres = nivelesOcupados.length < niveles ? [1] : []
+  const { esEmpresa } = useRol()
   const formId = useId()
   const toast = useToast()
   const handleError = useApiErrorHandler()
+  const existingTypes = useRacks().data?.flatMap(r => r.tipo_rack ? [r.tipo_rack] : []) ?? []
   const crear = useCreateRack()
   const editar = useUpdateRack()
   const pending = crear.isPending || editar.isPending
@@ -73,6 +78,8 @@ function RackFormModalAbierto({ open, idZona, rack, refrigerada, niveles, nivele
   const form = useForm<In, unknown, Out>({
     resolver: zodResolver(esquema(editando, refrigerada)),
     defaultValues: {
+      tipo_rack: rack?.tipo_rack ?? '',
+      max_niveles: numStr(rack?.max_niveles ?? 1),
       codigo: rack?.codigo ?? '',
       nivel: numStr(rack?.nivel ?? libres[0]),
       capacidad: numStr(rack?.capacidad),
@@ -88,8 +95,8 @@ function RackFormModalAbierto({ open, idZona, rack, refrigerada, niveles, nivele
     const temperatura = refrigerada ? { temperatura_min: v.temperatura_min, temperatura_max: v.temperatura_max } : {}
     try {
       const res = rack
-        ? await editar.mutateAsync({ id: rack.id_rack, body: { estado: v.estado, ...temperatura } })
-        : await crear.mutateAsync({ id_zona: idZona, codigo: v.codigo, nivel: v.nivel, capacidad: v.capacidad, ...temperatura })
+        ? await editar.mutateAsync({ id: rack.id_rack, body: { tipo_rack: v.tipo_rack, estado: v.estado, ...(esEmpresa ? { max_niveles: v.max_niveles } : {}), ...temperatura } })
+        : await crear.mutateAsync({ id_zona: idZona, tipo_rack: v.tipo_rack, codigo: v.codigo, nivel: 1, max_niveles: v.max_niveles, capacidad: v.capacidad, ...temperatura })
       toast.success(rack ? 'Rack actualizado' : 'Rack creado')
       onGuardado?.(res)
       onClose()
@@ -118,6 +125,8 @@ function RackFormModalAbierto({ open, idZona, rack, refrigerada, niveles, nivele
       }
     >
       <form id={formId} onSubmit={submit} noValidate className="grid gap-4 sm:grid-cols-2">
+        <Field label="Tipo de rack" error={err.tipo_rack?.message} required className="sm:col-span-2"><Input list="tipos-rack" placeholder="Tipo no definido" {...register('tipo_rack')} /><datalist id="tipos-rack">{[...new Set(['Convencional','Selectivo','Dinámico','Estantería','Refrigerado', ...existingTypes])].map(t => <option key={t} value={t} />)}</datalist></Field>
+        <Field label="Máximo de niveles del rack" error={err.max_niveles?.message} required className="sm:col-span-2"><Input type="number" min={1} step={1} disabled={!esEmpresa} {...register('max_niveles')} /></Field>
         {rack ? (
           <Field label="Estado" error={err.estado?.message} required className="sm:col-span-2" hint="Solo los racks Libres reciben mercadería.">
             <Select options={ESTADO_RACK_OPCIONES} {...register('estado')} />
@@ -126,14 +135,6 @@ function RackFormModalAbierto({ open, idZona, rack, refrigerada, niveles, nivele
           <>
             <Field label="Código" error={err.codigo?.message} required className="sm:col-span-2" hint="Identificador visible en etiquetas, p. ej. A-01.">
               <Input placeholder="A-01" autoComplete="off" className="font-mono uppercase" maxLength={50} {...register('codigo')} />
-            </Field>
-            <Field
-              label="Nivel"
-              error={err.nivel?.message}
-              required
-              hint={libres.length === 0 ? `La zona ya tiene sus ${niveles} niveles ocupados.` : `Un rack por nivel (${niveles} niveles en la zona).`}
-            >
-              <Select options={libres.map((n) => ({ value: String(n), label: `Nivel ${n}` }))} placeholder={false} {...register('nivel')} />
             </Field>
             <Field label="Carga máxima" error={err.capacidad?.message} required hint="Peso que soporta el rack. No se puede cambiar después.">
               <Input type="number" inputMode="decimal" step="any" min={0} suffix="kg" placeholder="500" {...register('capacidad')} />

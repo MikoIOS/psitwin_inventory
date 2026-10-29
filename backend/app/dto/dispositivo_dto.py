@@ -85,6 +85,7 @@ class DispositivoCreate(BaseModel):
     id_zona: str
 
     id_rack: Optional[str] = None
+    id_nivel: Optional[str] = None
 
     nombre: str = Field(
         ...,
@@ -105,6 +106,7 @@ class DispositivoUpdate(BaseModel):
 
     # null -> sin rack
     id_rack: Optional[str] = None
+    id_nivel: Optional[str] = None
 
     activo: Optional[bool] = None
 
@@ -131,6 +133,7 @@ class LecturaActual(BaseModel):
 
 
 class EstadoDispositivo(BaseModel):
+    max_edad_lectura_s: float = 5
 
     # recibió datos en los últimos 5 s
     conectado: bool = False
@@ -144,6 +147,8 @@ class EstadoDispositivo(BaseModel):
 
 class DispositivoResponse(BaseModel):
 
+    parametros_disponibles: list[str] = []
+
     id_dispositivo: str
 
     id_empresa: str
@@ -153,6 +158,7 @@ class DispositivoResponse(BaseModel):
     id_zona: str
 
     id_rack: Optional[str] = None
+    id_nivel: Optional[str] = None
 
     nombre: str
 
@@ -195,6 +201,11 @@ class TokenResponse(BaseModel):
 # ============================================================
 
 class LecturasResponse(BaseModel):
+
+    pagina: int = 1
+    limite: int = 2000
+    hay_mas: bool = False
+    resumen: dict = {}
 
     id_dispositivo: str
 

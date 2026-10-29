@@ -11,6 +11,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSession } from '@/auth/SessionContext'
 import { api, seg } from './client'
+import { requireList } from './normalize'
 
 export type Parametro = 't_int' | 't_amb' | 'hum' | 'corriente'
 export const PARAMETROS: Parametro[] = ['t_int', 't_amb', 'hum', 'corriente']
@@ -54,6 +55,7 @@ export type TipoAlertaSensor =
   | 'PUERTA_ABIERTA'
   | 'APERTURAS_EXCESIVAS'
   | 'SENSOR_SIN_DATOS'
+  | 'LECTURA_DESACTUALIZADA'
 
 export const TIPOS_ALERTA_SENSOR: TipoAlertaSensor[] = [
   'TEMPERATURA_FUERA_RANGO',
@@ -62,10 +64,14 @@ export const TIPOS_ALERTA_SENSOR: TipoAlertaSensor[] = [
   'PUERTA_ABIERTA',
   'APERTURAS_EXCESIVAS',
   'SENSOR_SIN_DATOS',
+  'LECTURA_DESACTUALIZADA',
 ]
 
 /** Alerta (colección existente) con los campos de sensor. Una por episodio. */
 export interface Alerta {
+  codigo_rack?: string | null
+  id_nivel?: string | null
+  id_rack?: string | null
   id_alerta: string
   tipo_alerta: TipoAlertaSensor | (string & {})
   estado: 'ACTIVA' | 'VISTA' | 'RESUELTA' | 'IGNORADA' | (string & {})
@@ -88,6 +94,7 @@ export interface Alerta {
 
 /** Estado en vivo de un dispositivo (REST y snapshot del WebSocket). */
 export interface EstadoDispositivo {
+  max_edad_lectura_s?: number
   conectado: boolean
   ultima_lectura: Lectura | null
   puerta_abierta_desde: string | null
@@ -95,10 +102,12 @@ export interface EstadoDispositivo {
 }
 
 export interface Dispositivo {
+  parametros_disponibles?: string[]
   id_dispositivo: string
   id_empresa?: string
   id_almacen: string
   id_zona: string
+  id_nivel?: string | null
   id_rack: string | null
   nombre: string
   activo: boolean
@@ -112,6 +121,7 @@ export interface Dispositivo {
 export interface DispositivoCreate {
   id_almacen: string
   id_zona: string
+  id_nivel?: string | null
   id_rack?: string | null
   nombre: string
   limites?: Limites
@@ -119,6 +129,7 @@ export interface DispositivoCreate {
 
 export interface DispositivoUpdate {
   nombre?: string
+  id_nivel?: string | null
   id_rack?: string | null
   activo?: boolean
   limites?: Limites
@@ -131,7 +142,7 @@ export type DispositivoConToken = Dispositivo & { token: string }
 export const temaMqtt = (id: string) => `psitwin/dispositivos/${id}/lecturas`
 
 export const dispositivosApi = {
-  list: () => api.get<Dispositivo[]>('/dispositivos'),
+  list: async () => requireList<Dispositivo>(await api.get('/dispositivos')),
   get: (id: string) => api.get<Dispositivo>(`/dispositivos/${seg(id)}`),
   create: (body: DispositivoCreate) => api.post<DispositivoConToken>('/dispositivos', body),
   update: (id: string, body: DispositivoUpdate) => api.put<Dispositivo>(`/dispositivos/${seg(id)}`, body),
@@ -142,7 +153,7 @@ export const dispositivosApi = {
 }
 
 export const alertasApi = {
-  list: () => api.get<Alerta[]>('/alertas'),
+  list: async () => requireList<Alerta>(await api.get('/alertas')),
   cambiarEstado: (id: string, estado: Alerta['estado']) => api.patch<Alerta>(`/alertas/${seg(id)}/estado`, { estado }),
 }
 
@@ -189,7 +200,7 @@ export function useLecturas(id: string | undefined, horas: number) {
 }
 
 /** Acepta lectura cruda `{ts, t_int…}` o agregada por minuto (`{minuto|ts, t_int: {min,max,prom}}` o `t_int_prom`). */
-function aLectura(raw: unknown): Lectura {
+export function aLectura(raw: unknown): Lectura {
   const r = (raw ?? {}) as Record<string, unknown>
   const valor = (campo: string): number | null => {
     const v = r[campo]

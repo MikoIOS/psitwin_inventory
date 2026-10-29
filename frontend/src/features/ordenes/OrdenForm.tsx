@@ -1,3 +1,4 @@
+import { OfertaSolicitudForm } from './OfertaSolicitudForm'
 /**
  * Formularios de solicitud de reposición (solo OPERARIO, en modal):
  *  - OrdenCrearModal: proveedor ACTIVO, fecha estimada (datetime-local → ISO UTC) y observación. El almacén es el
@@ -10,10 +11,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { useCreateOrden, useUpdateOrden } from '@/api/ordenesReposicion'
-import { useProveedores } from '@/api/proveedores'
 import type { OrdenReposicion } from '@/api/types'
 import { ProveedorSelect } from '@/components/selects'
-import { Button, Field, Input, LoadingBlock, Modal, Textarea, useApiErrorHandler, useToast } from '@/components/ui'
+import { Button, Field, Input, Modal, Textarea, useApiErrorHandler, useToast } from '@/components/ui'
 import { datetimeLocalToIso, isoToDatetimeLocal } from '@/lib/format'
 import { idRequerido, textoOpcional } from '@/lib/zod'
 
@@ -36,14 +36,6 @@ export function fechaSugerida(dias: number | undefined): string {
 
 /* ------------------------------------------------------------------ */
 
-const crearSchema = z.object({
-  id_proveedor: idRequerido('Elige un proveedor activo'),
-  fecha_estimada_recepcion: fechaEstimada(),
-  observacion: textoOpcional({ max: 500 }),
-})
-type CrearIn = z.input<typeof crearSchema>
-type CrearOut = z.output<typeof crearSchema>
-
 export interface OrdenCrearModalProps {
   open: boolean
   onClose: () => void
@@ -59,100 +51,20 @@ export function OrdenCrearModal({ open, onClose, idProveedor, onCreated }: Orden
       open={open}
       onClose={onClose}
       title="Nueva solicitud de reposición"
-      description="Se crea Pendiente para tu almacén. Después agregas los productos y la empresa la valida."
+      description="Selecciona ofertas, revisa los importes y confirma para que la empresa apruebe."
       size="lg"
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={crear.isPending}>
             Cancelar
           </Button>
-          <Button type="submit" form="form-orden-crear" icon="check" loading={crear.isPending}>
-            Crear solicitud
-          </Button>
         </>
       }
     >
-      {open && <OrdenCrearFormGate crear={crear} idProveedor={idProveedor} onCreated={onCreated} />}
+      {open && <OfertaSolicitudForm crear={crear} idProveedor={idProveedor} onCreated={onCreated} />}
     </Modal>
   )
 }
-
-interface OrdenCrearFormProps {
-  crear: ReturnType<typeof useCreateOrden>
-  idProveedor: string | undefined
-  onCreated: (o: OrdenReposicion) => void
-}
-
-/** Espera a los proveedores si hay uno preseleccionado: solo se acepta si está ACTIVO. */
-function OrdenCrearFormGate(props: OrdenCrearFormProps) {
-  const proveedores = useProveedores({ soloActivos: true })
-  if (props.idProveedor && proveedores.isLoading) return <LoadingBlock label="Cargando proveedores…" className="py-8" />
-  return <OrdenCrearForm {...props} />
-}
-
-function OrdenCrearForm({ crear, idProveedor, onCreated }: OrdenCrearFormProps) {
-  const toast = useToast()
-  const handleError = useApiErrorHandler()
-  const proveedores = useProveedores({ soloActivos: true })
-  const proveedorInicial = idProveedor ? proveedores.data?.find((p) => p.id_proveedor === idProveedor) : undefined
-  const proveedorInactivo = !!idProveedor && !proveedorInicial
-
-  const form = useForm<CrearIn, unknown, CrearOut>({
-    resolver: zodResolver(crearSchema),
-    defaultValues: {
-      id_proveedor: proveedorInicial?.id_proveedor ?? '',
-      fecha_estimada_recepcion: proveedorInicial ? fechaSugerida(proveedorInicial.tiempo_entrega_estimado_dias) : '',
-      observacion: '',
-    },
-  })
-  const { register, handleSubmit, formState, getValues, setValue } = form
-  const err = formState.errors
-
-  const submit = handleSubmit(async (values) => {
-    try {
-      const orden = await crear.mutateAsync({ ...values, origen: 'MANUAL' })
-      toast.success('Ahora agrega los productos a solicitar.', 'Solicitud creada')
-      onCreated(orden)
-    } catch (e) {
-      handleError(e, { form, title: 'No se pudo crear la solicitud' })
-    }
-  })
-
-  return (
-    <form id="form-orden-crear" onSubmit={submit} noValidate className="grid gap-4 sm:grid-cols-2">
-      <Field
-        label="Proveedor"
-        error={err.id_proveedor?.message ?? (proveedorInactivo ? 'El proveedor indicado no está activo o no existe; elige otro.' : undefined)}
-        hint="Solo proveedores activos."
-        required
-      >
-        <ProveedorSelect
-          {...register('id_proveedor', {
-            onChange: (e: { target: { value: string } }) => {
-              const p = proveedores.data?.find((x) => x.id_proveedor === e.target.value)
-              if (p && !getValues('fecha_estimada_recepcion')) {
-                setValue('fecha_estimada_recepcion', fechaSugerida(p.tiempo_entrega_estimado_dias))
-              }
-            },
-          })}
-        />
-      </Field>
-      <Field
-        label="Fecha estimada de recepción"
-        error={err.fecha_estimada_recepcion?.message}
-        hint="Hora local. Se sugiere según el tiempo de entrega del proveedor."
-        required
-      >
-        <Input type="datetime-local" {...register('fecha_estimada_recepcion')} />
-      </Field>
-      <Field label="Observación" error={err.observacion?.message} className="sm:col-span-2">
-        <Textarea placeholder="Reposición de productos con stock bajo" {...register('observacion')} />
-      </Field>
-    </form>
-  )
-}
-
-/* ------------------------------------------------------------------ */
 
 const editarSchema = z.object({
   id_proveedor: idRequerido('Elige un proveedor activo'),

@@ -83,7 +83,7 @@ export function useDetallesRecepcionPorOrden(idOrden: string | undefined) {
 /** Todo lo que cambia cuando entra mercadería: orden, recepciones, stock y movimientos. */
 function invalidarTrasIngreso(qc: QueryClient) {
   return Promise.all(
-    [queryKeys.ordenes.all, queryKeys.detallesReposicion.all, queryKeys.recepciones.all, queryKeys.inventarios.all, queryKeys.movimientos.all, queryKeys.productos.all, queryKeys.racks.all].map(
+    [['abastecimiento'], ['analisis'], queryKeys.ordenes.all, queryKeys.detallesReposicion.all, queryKeys.recepciones.all, queryKeys.inventarios.all, queryKeys.movimientos.all, queryKeys.productos.all, queryKeys.racks.all].map(
       (queryKey) => qc.invalidateQueries({ queryKey }),
     ),
   )

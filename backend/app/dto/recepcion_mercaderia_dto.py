@@ -1,3 +1,4 @@
+from app.dto.cantidad import Cantidad
 from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
 
@@ -9,6 +10,7 @@ from app.dto.detalle_recepcion_dto import (
 
 
 class RecepcionMercaderiaCreate(BaseModel):
+    clave_idempotencia: str | None = Field(default=None, min_length=8, max_length=100)
 
     id_orden_reposicion: str
 
@@ -29,6 +31,7 @@ class RecepcionMercaderiaCreate(BaseModel):
 
 
 class RecepcionMercaderiaResponse(BaseModel):
+    comparacion: list[dict] = Field(default_factory=list)
 
     id_recepcion: str
 
@@ -65,12 +68,12 @@ class ResolverEvaluacion(BaseModel):
         max_length=1000
     )
 
-    cantidad_aceptada: int | None = Field(
+    cantidad_aceptada: Cantidad | None = Field(
         default=None,
         ge=0
     )
 
-    cantidad_rechazada: int | None = Field(
+    cantidad_rechazada: Cantidad | None = Field(
         default=None,
         ge=0
     )
@@ -78,11 +81,15 @@ class ResolverEvaluacion(BaseModel):
     id_inventario: str | None = None
     id_detalle_inventario: str | None = None
     id_rack: str | None = None
-    stock_minimo: int = Field(default=0, ge=0)
-    stock_maximo: int | None = Field(default=None, ge=0)
+    stock_minimo: Cantidad = Field(default=0, ge=0)
+    stock_maximo: Cantidad | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def validar_estado(self):
+        if self.estado_recepcion == EstadoRecepcion.RECHAZADO:
+            if self.cantidad_aceptada not in (None, 0):
+                raise ValueError('Una recepción rechazada no puede aceptar cantidades')
+            self.cantidad_aceptada = 0
 
         if self.estado_recepcion not in {
             EstadoRecepcion.CONFORME,

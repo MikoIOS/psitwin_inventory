@@ -222,7 +222,7 @@ async def validar(
     user: UsuarioActual = Depends(require_empresa)
 ):
     await AccesoService.verificar_orden(user, id_orden)
-    return await service.validar(id_orden)
+    return await service.validar(id_orden, user)
 
 
 # ============================================================
@@ -241,7 +241,7 @@ async def devolver(
     await AccesoService.verificar_orden(user, id_orden)
     return await service.devolver(
         id_orden,
-        data.comentario
+        data.comentario, user
     )
 
 
@@ -258,7 +258,7 @@ async def reenviar(
     user: UsuarioActual = Depends(require_operario)
 ):
     await AccesoService.verificar_orden(user, id_orden)
-    return await service.reenviar(id_orden)
+    return await service.reenviar(id_orden, user)
 
 
 @router.patch(
@@ -270,7 +270,7 @@ async def cancelar(
     user: UsuarioActual = Depends(require_empresa)
 ):
     await AccesoService.verificar_orden(user, id_orden)
-    return await service.cancelar(id_orden)
+    return await service.cancelar(id_orden, user)
 
 
 # ============================================================
@@ -289,7 +289,7 @@ async def registrar_despacho(
     await AccesoService.verificar_orden(user, id_orden)
     return await service.registrar_despacho(
         id_orden,
-        data
+        data, user
     )
 
 
@@ -327,4 +327,4 @@ async def eliminar(
     user: UsuarioActual = Depends(require_operario)
 ):
     await AccesoService.verificar_orden(user, id_orden)
-    return await service.eliminar(id_orden)
+    return await service.eliminar(id_orden, user)

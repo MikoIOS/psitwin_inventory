@@ -112,10 +112,10 @@ export default function OrdenDetallePage() {
 
   const detalles = detallesQ.data
   const lineas = detalles ? calcularPendientes(detalles, recibidosQ.data ?? []) : undefined
-  const total = (detalles ?? []).reduce((acc, d) => acc + d.cantidad_solicitada * (d.costo_unitario ?? 0), 0)
+  const total = orden.total_centimos != null ? orden.total_centimos / 100 : (detalles ?? []).reduce((acc, d) => acc + d.cantidad_solicitada * (d.costo_unitario ?? 0), 0)
   const sinCosto = (detalles ?? []).filter((d) => d.costo_unitario === null).length
-  const totalSolicitado = (lineas ?? []).reduce((a, l) => a + l.solicitada, 0)
-  const totalAceptado = (lineas ?? []).reduce((a, l) => a + Math.min(l.aceptada, l.solicitada), 0)
+  const totalSolicitado = lineas?.length ?? 0
+  const totalAceptado = (lineas ?? []).filter(l => l.aceptada >= l.solicitada).length
   const sinLineas = !!detalles && detalles.length === 0
 
   const mutaciones = { validar, reenviar, cancelar, eliminar }
@@ -225,7 +225,7 @@ export default function OrdenDetallePage() {
       )}
       {puedeDespachar && (
         <Button icon="truck" size="lg" className="sm:h-10 sm:text-sm" onClick={() => setDespachando(true)} disabled={!detalles || sinLineas}>
-          {despacho ? 'Actualizar despacho' : 'Registrar despacho'}
+          {despacho ? 'Registrar siguiente despacho' : 'Registrar despacho'}
         </Button>
       )}
     </>
@@ -331,13 +331,13 @@ export default function OrdenDetallePage() {
                 cell: (l) =>
                   l.completa ? <StatusBadge estado="RECIBIDA" /> : l.aceptada > 0 ? <StatusBadge estado="PARCIAL" /> : null,
               },
-              { id: 'solicitada', header: 'Solicitada', align: 'right', cell: (l) => formatNumero(l.solicitada) },
+              { id: 'solicitada', header: 'Solicitada', align: 'right', cell: (l) => `${formatNumero(l.solicitada)} ${l.detalle.unidad ?? 'unidad'}` },
               { id: 'costo', header: 'Costo unit.', align: 'right', cell: (l) => formatMoneda(l.detalle.costo_unitario) },
               {
                 id: 'subtotal',
                 header: 'Subtotal',
                 align: 'right',
-                cell: (l) => (l.detalle.costo_unitario === null ? '—' : formatMoneda(l.solicitada * l.detalle.costo_unitario)),
+                cell: (l) => (l.detalle.costo_unitario === null ? '—' : formatMoneda(l.detalle.subtotal_centimos != null ? l.detalle.subtotal_centimos / 100 : l.solicitada * l.detalle.costo_unitario)),
               },
               {
                 id: 'aceptada',
@@ -396,7 +396,7 @@ export default function OrdenDetallePage() {
                 <p className="label-stencil">Avance de recepción</p>
                 <ProgressBar value={totalAceptado} max={totalSolicitado} label="Avance total de la orden" />
                 <p className="text-xs text-fg-subtle">
-                  {formatNumero(totalAceptado)} de {formatNumero(totalSolicitado)} unidades aceptadas
+                  {formatNumero(totalAceptado)} de {formatNumero(totalSolicitado)} líneas recibidas completamente
                 </p>
               </div>
               <div className="text-right">
@@ -426,7 +426,7 @@ export default function OrdenDetallePage() {
               ? {
                   actions: (
                     <Button icon="truck" size="sm" onClick={() => setDespachando(true)} disabled={!detalles || sinLineas}>
-                      {despacho ? 'Actualizar despacho' : 'Registrar despacho'}
+                      {despacho ? 'Registrar siguiente despacho' : 'Registrar despacho'}
                     </Button>
                   ),
                 }
@@ -608,6 +608,9 @@ export default function OrdenDetallePage() {
           }}
         />
       )}
+
+      {!!orden.historial_estados?.length && <Card title="Historial de la solicitud" className="mt-5"><ol className="space-y-3">{orden.historial_estados.map((event, index) => <li key={index} className="border-b border-border pb-2 text-sm"><p>{formatFechaHora(event.fecha)} · {event.anterior ?? 'Inicio'} → {event.nuevo} · {event.rol}</p>{event.observacion && <p className="text-fg-muted">{event.observacion}</p>}<p className="text-xs text-fg-subtle">Usuario: {event.usuario}</p></li>)}</ol></Card>}
+      {!!orden.despachos?.length && <Card title="Todos los despachos registrados" className="mt-5">{orden.despachos.map((dispatch, index) => <div key={index} className="border-b border-border py-3 text-sm"><p>Despacho {index + 1} · {formatFechaHora(dispatch.fecha)}</p>{dispatch.lineas.map(line => <p key={line.id_detalle_reposicion}>{nombres.producto(line.id_producto ?? detalles?.find(d => d.id_detalle_reposicion === line.id_detalle_reposicion)?.id_producto ?? '')}: {line.cantidad} {detalles?.find(d => d.id_detalle_reposicion === line.id_detalle_reposicion)?.unidad ?? 'unidad'}</p>)}{dispatch.observacion && <p>{dispatch.observacion}</p>}</div>)}</Card>}
 
       <p className="mt-6 text-xs text-fg-subtle">
         Creada el {formatFecha(orden.fecha_orden ?? orden.fecha_creacion)} · id <span className="font-mono">{id}</span>

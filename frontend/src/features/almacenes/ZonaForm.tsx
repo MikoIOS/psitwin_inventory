@@ -16,6 +16,9 @@ import { MSG, numero, numStr, texto } from '@/lib/zod'
 
 export const zonaSchema = z
   .object({
+    codigo: texto({ min: 1, max: 50 }),
+    descripcion: z.string().max(1000),
+    estado: z.enum(['ACTIVO', 'INACTIVO']),
     nombre: texto({ min: 2, max: 100 }),
     tipo_zona: z.string().min(1, MSG.seleccion),
     capacidad: numero({ min: 1, entero: true }),
@@ -31,10 +34,13 @@ void _check
 
 function defaults(z?: Zona | null): In {
   return {
+    codigo: z?.codigo ?? z?.nombre.toUpperCase() ?? '',
+    descripcion: z?.descripcion ?? '',
+    estado: z?.estado === 'INACTIVO' ? 'INACTIVO' : 'ACTIVO',
     nombre: z?.nombre ?? '',
     // Un tipo antiguo (fuera del catálogo) obliga a elegir uno nuevo.
     tipo_zona: tipoZona(z?.tipo_zona) ? z!.tipo_zona : '',
-    capacidad: numStr(z?.capacidad),
+    capacidad: numStr(z?.max_racks ?? z?.capacidad),
     refrigerada: z?.refrigerada ?? false,
   }
 }
@@ -63,6 +69,9 @@ export function ZonaForm({ zona, formId, onSubmit, onSuccess }: ZonaFormProps) {
 
   return (
     <form id={formId} onSubmit={submit} noValidate className="grid gap-4 sm:grid-cols-2">
+      <Field label="Código de zona" required error={err.codigo?.message}><Input {...register('codigo')} /></Field>
+      <Field label="Estado de zona"><Select placeholder={false} options={[{ value: 'ACTIVO', label: 'Activa' }, { value: 'INACTIVO', label: 'Inactiva' }]} {...register('estado')} /></Field>
+      <Field label="Descripción de zona"><Input {...register('descripcion')} /></Field>
       <Field label="Nombre de la zona" error={err.nombre?.message} required>
         <Input placeholder="Zona A" {...register('nombre')} />
       </Field>
@@ -82,7 +91,7 @@ export function ZonaForm({ zona, formId, onSubmit, onSuccess }: ZonaFormProps) {
         description="Cada rack de la zona tendrá temperatura mínima y máxima; solo ahí se guardan productos que requieren refrigeración."
         {...register('refrigerada')}
       />
-      <Field label="Niveles" error={err.capacidad?.message} required className="sm:col-span-2" hint="Cantidad de racks que puede tener la zona (un rack por nivel).">
+      <Field label="Máximo de racks" error={err.capacidad?.message} required className="sm:col-span-2" hint="Los niveles se configuran dentro de cada rack.">
         <Input type="number" inputMode="numeric" step={1} min={1} placeholder="5" {...register('capacidad')} />
       </Field>
     </form>

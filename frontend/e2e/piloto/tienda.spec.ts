@@ -1,0 +1,45 @@
+import { test, expect } from '@playwright/test'
+test('pilot company: warehouse, catalogue, movements, rack sensors, demand and logout', async ({ page }, info) => {
+  const errors: string[] = []
+  page.on('response', r => { if (r.url().includes('/api/v1') && r.status() >= 500) errors.push(`${r.status()} ${r.url()}`) })
+  await page.goto('/login')
+  await page.locator('input[name=correo]').fill('piloto.simulado@gmail.com')
+  await page.locator('input[name=password]').fill('SIMULADO-Piloto-2026!')
+  await page.getByRole('button', { name: 'Ingresar', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Almacenes', exact: true })).toBeVisible({ timeout: 20000 })
+  await page.getByRole('link', { name: /Ver zonas de Almacén principal SIMULADO/ }).click()
+  await expect(page.getByText('Bebidas SIMULADO', { exact: true })).toBeVisible()
+  await expect(page.getByText('Alimentos SIMULADO', { exact: true })).toBeVisible()
+  await expect(page.getByText('Refrigerados SIMULADO', { exact: true })).toBeVisible()
+  for (const path of ['/productos','/inventario','/movimientos','/recepciones','/ordenes','/operarios','/proveedores','/analisis']) {
+    await page.goto(path)
+    await expect(page.locator('h1')).toBeVisible()
+    if (['/productos','/inventario','/movimientos'].includes(path)) {
+      await expect(page.getByText('Arroz', { exact: true }).filter({ visible: true }).first()).toBeVisible({ timeout: 15000 })
+    }
+    await expect(page.getByText('Ocurrió un error inesperado', { exact: false })).toHaveCount(0)
+    await page.screenshot({ path: `../artifacts/piloto.local/${info.project.name}-${path.slice(1)}.png`, fullPage: true })
+  }
+  await page.goto('/monitoreo')
+  await page.getByLabel('Almacén', { exact: true }).selectOption({ label: 'Almacén principal SIMULADO revisado' })
+  await page.getByLabel('Zona', { exact: true }).selectOption({ label: 'Refrigerados SIMULADO' })
+  const rack = page.getByLabel('Rack', { exact: true })
+  await expect(rack.locator('option').filter({ hasText: 'C-01' })).toContainText('Humedad')
+  await rack.selectOption(await rack.locator('option').filter({ hasText: 'C-01' }).getAttribute('value') as string)
+  await expect(page.getByRole('button', { name: 'Humedad', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Movimiento', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Humedad', exact: true }).click()
+  await page.screenshot({ path: `../artifacts/piloto.local/${info.project.name}-sensores.png`, fullPage: true })
+  await page.getByLabel('Zona', { exact: true }).selectOption({ label: 'Bebidas SIMULADO' })
+  await rack.selectOption({ label: 'Rack A-02 · Sin sensores' })
+  await expect(page.getByText('Este rack no tiene sensores registrados.')).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Monitoreo', exact: true })).toBeVisible()
+  await expect(page).not.toHaveURL(/login/)
+  const menu = page.getByRole('button', { name: 'Abrir menú', exact: true })
+  if (info.project.name === 'mobile') { await expect(menu).toBeVisible(); await menu.click() }
+  await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click()
+  await page.goto('/inventario')
+  await expect(page).toHaveURL(/login/)
+  expect(errors).toEqual([])
+})

@@ -241,6 +241,8 @@ class MovimientoService:
         rack_ref = await RackRepository.obtener_por_id(inventario["id_rack"])
         zona = await ZonaRepository.obtener_por_id(rack_ref["id_zona"]) if rack_ref else None
         producto_ref = await ProductoRepository.obtener_por_id(inventario["id_producto"])
+        from app.services.oferta_service import miles
+        miles(data.cantidad, (producto_ref or {}).get('unidad', 'unidad'))
         if not almacen or not zona or zona["id_almacen"] != header["id_almacen"] or not producto_ref or producto_ref["id_empresa"] != almacen["id_empresa"]:
             raise HTTPException(409, "Referencias de ubicación/producto incompatibles")
         if operario.get("id_empresa") != almacen["id_empresa"] or operario.get("id_almacen") != header["id_almacen"]:
@@ -318,6 +320,8 @@ class MovimientoService:
         # 9. Validar stock
         # ----------------------------------------------------
 
+        from decimal import Decimal
+        stock_nuevo = float(Decimal(str(stock_nuevo)).quantize(Decimal('.001')))
         if stock_nuevo < 0:
 
             raise HTTPException(
@@ -411,6 +415,7 @@ class MovimientoService:
 
             "id_rack":
                 inventario["id_rack"],
+            "id_nivel": inventario.get("id_nivel"),
 
             "id_operario":
                 data.id_operario,

@@ -1,6 +1,11 @@
 # app/main.py
 
 from contextlib import asynccontextmanager
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
+from app.utils.log_redaction import install_auth_log_redaction
+
+install_auth_log_redaction()
 
 from fastapi import (
     Depends,
@@ -124,6 +129,7 @@ from app.services.sensores.monitoreo_service import (
 from app.controllers.saiki_controller import (
     router as saiki_router
 )
+from app.controllers.analisis_controller import router as analisis_router
 
 # NUEVO:
 # Controller temporal para probar el historial
@@ -162,6 +168,8 @@ async def lifespan(
     yield
 
     await monitoreo.detener()
+    from app.services.local_voice_service import voice_service
+    await voice_service.close()
 
     # --------------------------------------------------------
     # CIERRE DE LA APLICACION
@@ -193,6 +201,18 @@ app = FastAPI(
     lifespan=
         lifespan
 )
+
+@app.exception_handler(RequestValidationError)
+async def private_auth_validation_errors(request: Request, exc: RequestValidationError):
+    if '/auth/' in request.url.path or request.url.path.endswith('/password'):
+        # Pydantic's default "input" may contain an entire password-bearing body.
+        return JSONResponse(status_code=422, content={'detail': [
+            {key: item[key] for key in ('loc', 'msg', 'type') if key in item}
+            for item in exc.errors()
+        ]})
+    return await request_validation_exception_handler(request, exc)
+
+# Google OAuth routes retired. Existing identity fields remain untouched.
 
 
 # ============================================================
@@ -443,10 +463,10 @@ async def health():
 #      ↓
 # DEMAND HISTORY
 #      ↓
-# FEATURE BUILDER
+# CALENDARIO
 #      ↓
-# LIGHTGBM
-# D+1 ... D+7
+# AUTOGLUON
+# D+1 ... D+90
 #      ↓
 # FORECAST
 #      ↓
@@ -639,8 +659,8 @@ app.include_router(
 # ============================================================
 # FORECAST
 #
-# Movimiento -> DemandHistory -> FeatureBuilder
-# -> LightGBM -> D+1 ... D+7
+# Movimiento -> Historial completo -> Calendario
+# -> AutoGluon -> D+1 ... D+90
 #
 # Solo EMPRESA, sobre inventarios propios.
 # ============================================================
@@ -656,6 +676,14 @@ app.include_router(
     saiki_router,
     prefix=settings.api_prefix
 )
+
+from app.controllers.local_voice_controller import router as local_voice_router
+app.include_router(local_voice_router, prefix=settings.api_prefix)
+
+from app.controllers.abastecimiento_controller import router as abastecimiento_router
+app.include_router(abastecimiento_router, prefix=settings.api_prefix, dependencies=PROTEGIDO)
+
+app.include_router(analisis_router, prefix=settings.api_prefix, dependencies=PROTEGIDO)
 
 from app.controllers.detalle_inventario_controller import router as detalle_inventario_router
 app.include_router(detalle_inventario_router, prefix=settings.api_prefix, dependencies=PROTEGIDO)
@@ -678,3 +706,6 @@ app.include_router(
     monitoreo_ws_router,
     prefix=settings.api_prefix
 )
+
+from app.controllers.inventario_consulta_controller import router as inventario_consulta_router
+app.include_router(inventario_consulta_router, prefix=settings.api_prefix, dependencies=PROTEGIDO)

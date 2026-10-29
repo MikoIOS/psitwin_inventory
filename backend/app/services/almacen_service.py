@@ -73,7 +73,7 @@ class AlmacenService:
     # ============================================================
 
     @staticmethod
-    async def crear(
+    async def _crear(
         data: AlmacenCreate
     ) -> Dict[str, Any]:
 
@@ -218,7 +218,7 @@ class AlmacenService:
     # ============================================================
 
     @staticmethod
-    async def actualizar(
+    async def _actualizar(
         id_almacen: str,
         data: AlmacenUpdate
     ) -> Dict[str, Any]:
@@ -282,7 +282,7 @@ class AlmacenService:
     # ============================================================
 
     @staticmethod
-    async def eliminar(
+    async def _eliminar(
         id_almacen: str
     ) -> Dict[str, str]:
 
@@ -336,6 +336,22 @@ class AlmacenService:
             "mensaje":
                 "Almacén eliminado correctamente"
         }
+
+    @staticmethod
+    async def crear(data):
+        from app.services.jerarquia_service import JerarquiaService
+        return await JerarquiaService.guardar_almacen(data)
+
+    @staticmethod
+    async def actualizar(identifier, data):
+        from app.services.jerarquia_service import JerarquiaService
+        return await JerarquiaService.guardar_almacen(data, identifier)
+
+    @staticmethod
+    async def eliminar(identifier):
+        from app.services.stock_lock import bloqueo_recurso
+        async with bloqueo_recurso('almacen:' + identifier):
+            return await AlmacenService._eliminar(identifier)
 
 
 # ============================================================

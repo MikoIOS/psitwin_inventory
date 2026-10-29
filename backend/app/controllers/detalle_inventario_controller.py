@@ -8,6 +8,7 @@ from app.dependencies.dependencies import (
     require_empresa_u_operario,
     require_operario
 )
+from app.dependencies.dependencies import require_empresa
 
 from app.dto.auth_dto import (
     UsuarioActual
@@ -67,9 +68,15 @@ async def _filtrar_alcance(
 async def crear_inventario(
     data: DetalleInventarioCreate,
     user: UsuarioActual = Depends(
-        require_operario
+        require_empresa_u_operario
     )
 ):
+    if data.stock_actual != 0:
+        from fastapi import HTTPException
+        raise HTTPException(403, 'El stock inicial debe ser cero; las entradas aceptadas se registran mediante recepción')
+    if user.es_operario and (data.stock_minimo != 0 or data.stock_maximo != 0 or data.stock_actual != 0):
+        from fastapi import HTTPException
+        raise HTTPException(403, 'El operario solo crea ubicaciones vacías; los umbrales los administra la empresa y las entradas se registran por recepción')
 
     await AccesoService.verificar_inventario(user, data.id_inventario)
 
@@ -271,7 +278,7 @@ async def actualizar_inventario(
     id_detalle_inventario: str,
     data: DetalleInventarioUpdate,
     user: UsuarioActual = Depends(
-        require_operario
+        require_empresa
     )
 ):
 
@@ -284,7 +291,7 @@ async def actualizar_inventario(
         service.actualizar_inventario(
             id_detalle_inventario,
             data,
-            user.id_operario
+            None
         )
     )
 

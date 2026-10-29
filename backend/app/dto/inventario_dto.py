@@ -1,3 +1,4 @@
+from app.dto.cantidad import Cantidad
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
@@ -27,6 +28,6 @@ class InventarioHistorialResponse(BaseModel):
     accion: str
     antes: dict | None = None
     despues: dict | None = None
-    cantidad: int | None = None
-    stock_anterior: int | None = None
-    stock_nuevo: int | None = None
+    cantidad: Cantidad | None = None
+    stock_anterior: Cantidad | None = None
+    stock_nuevo: Cantidad | None = None

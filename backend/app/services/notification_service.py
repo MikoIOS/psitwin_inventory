@@ -81,7 +81,7 @@ class NotificationService:
             (
                 settings.smtp_host,
                 settings.smtp_user,
-                settings.smtp_password,
+                settings.smtp_secret,
                 settings.smtp_from or settings.smtp_user,
             )
         ):
@@ -101,7 +101,7 @@ class NotificationService:
                 settings.smtp_host,
                 settings.smtp_port,
                 settings.smtp_user,
-                settings.smtp_password,
+                settings.smtp_secret,
                 settings.smtp_from or settings.smtp_user,
                 recipient,
                 subject,
@@ -362,7 +362,7 @@ class NotificationService:
             (
                 settings.smtp_host,
                 settings.smtp_user,
-                settings.smtp_password,
+                settings.smtp_secret,
                 settings.smtp_from or settings.smtp_user,
             )
         ):
@@ -382,7 +382,7 @@ class NotificationService:
                 settings.smtp_host,
                 settings.smtp_port,
                 settings.smtp_user,
-                settings.smtp_password,
+                settings.smtp_secret,
                 settings.smtp_from or settings.smtp_user,
                 recipient,
                 subject,
@@ -548,6 +548,9 @@ class NotificationService:
         error,
         now,
     ):
+        if error:
+            for secret in (settings.smtp_app_password, settings.smtp_password):
+                if secret: error = error.replace(secret, '[redacted]')
         document = {
             "event_id": event_id,
             "id_empresa": id_empresa,
@@ -586,8 +589,5 @@ class NotificationService:
         message["To"] = recipient
         message["Subject"] = subject
         message.set_content(body)
-        with smtplib.SMTP(host, port, timeout=20) as server:
-            if settings.smtp_use_tls:
-                server.starttls()
-            server.login(user, password)
-            server.send_message(message)
+        from app.services.smtp_transport import send_message
+        send_message(message, host, port, user, password)

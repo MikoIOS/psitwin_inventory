@@ -1,0 +1,110 @@
+[
+  {
+    "nombre": "Productos Frescos y Refrigerados",
+    "refrigerada": true,
+    "familias": {
+      "Lácteos": [
+        "Leches y alternativas vegetales",
+        "Quesos (frescos, madurados, untables)",
+        "Yogures y postres lácteos"
+      ],
+      "Carnes y Aves": [
+        "Carne de res (vacuno)",
+        "Carne de cerdo",
+        "Pollo y aves de corral"
+      ],
+      "Embutidos y Fiambrería": [
+        "Jamones y fiambres cocidos",
+        "Chorizos y salames (curados)"
+      ],
+      "Frutas": [
+        "Cítricos",
+        "Tropicales",
+        "Frutos rojos",
+        "Frutas de pepita",
+        "Frutas de hueso"
+      ],
+      "Verduras y hortalizas": [
+        "Verduras de hoja",
+        "Hortalizas de fruto",
+        "Hortalizas de raíz",
+        "Hortalizas de tallo"
+      ],
+      "Hierbas y aromáticas": [
+        "Culantro",
+        "Perejil",
+        "Hierbabuena",
+        "Otras hierbas"
+      ]
+    }
+  },
+  {
+    "nombre": "Almacén Seco (Abarrotes / Despensa)",
+    "refrigerada": false,
+    "familias": {
+      "Granos y Pastas": [
+        "Arroz y legumbres (lentejas, frijoles)",
+        "Pastas secas (fideos, pastas rellenas secas)",
+        "Harinas y sémolas",
+        "Maíz",
+        "Quinua",
+        "Otros cereales"
+      ],
+      "Aceites y Condimentos": [
+        "Aceites de cocina (girasol, oliva)",
+        "Salsas preparadas (kétchup, mayonesa, tomate)",
+        "Especias y sazonadores"
+      ],
+      "Conservas y Enlatados": [
+        "Conservas de pescado (atún, sardinas)",
+        "Vegetales enlatados (maíz, arvejas)"
+      ],
+      "Tubérculos": [
+        "Papa",
+        "Camote",
+        "Yuca",
+        "Otros tubérculos"
+      ],
+      "Legumbres": [
+        "Frescas",
+        "Secas"
+      ]
+    }
+  },
+  {
+    "nombre": "Bebidas",
+    "refrigerada": false,
+    "familias": {
+      "Bebidas Analcohólicas (Sin alcohol)": [
+        "Aguas (mineral, con gas, sin gas)",
+        "Gaseosas y refrescos",
+        "Jugos y néctares de fruta"
+      ],
+      "Bebidas Alcohólicas": [
+        "Cervezas",
+        "Vinos y Espumantes",
+        "Destilados y Licores (ron, whisky, vodka)"
+      ]
+    }
+  },
+  {
+    "nombre": "Congelados",
+    "refrigerada": true,
+    "familias": {
+      "Alimentos Congelados": [
+        "Vegetales y frutas congeladas",
+        "Platos preparados (pizzas, hamburguesas)",
+        "Helados y postres fríos"
+      ]
+    }
+  },
+  {
+    "nombre": "Otros alimentos",
+    "refrigerada": false,
+    "familias": {
+      "Otros alimentos": [
+        "Otros alimentos"
+      ]
+    }
+  }
+]

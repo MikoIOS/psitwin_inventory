@@ -209,9 +209,11 @@ async def actualizar_rack(
     id_rack: str,
     data: RackUpdate,
     user: UsuarioActual = Depends(
-        require_operario
+        require_empresa_u_operario
     )
 ):
+    if not user.es_empresa and 'max_niveles' in data.model_fields_set:
+        raise HTTPException(403, 'Solo la empresa puede modificar el máximo de niveles')
 
     await AccesoService.verificar_rack(
         user,

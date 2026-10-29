@@ -65,6 +65,40 @@ class LecturaRepository:
             unique=True,
             name="uq_dispositivo_minuto"
         )
+        await database['lecturas'].create_index([('meta.id_empresa', 1), ('meta.id_dispositivo', 1), ('ts', 1)])
+        await database['lecturas_minuto'].create_index([('id_empresa', 1), ('id_dispositivo', 1), ('minuto', 1)])
+
+    @staticmethod
+    async def pagina(id_empresa, id_dispositivo, desde, hasta, minuto, pagina, limite, tipo=None):
+        collection = get_database()['lecturas_minuto' if minuto else 'lecturas']
+        time_field = 'minuto' if minuto else 'ts'
+        query = {('id_empresa' if minuto else 'meta.id_empresa'): id_empresa,
+                 ('id_dispositivo' if minuto else 'meta.id_dispositivo'): id_dispositivo,
+                 time_field: {'$gte': desde, '$lte': hasta}}
+        if tipo:
+            query[tipo] = {'$ne': None}
+        cursor = collection.find(query, {'_id': 0, 'meta': 0}).sort(time_field, 1).skip((pagina - 1) * limite).limit(limite + 1)
+        rows = await cursor.to_list(length=limite + 1)
+        return rows[:limite], len(rows) > limite
+
+    @staticmethod
+    async def resumen(id_empresa, id_dispositivo, desde, hasta):
+        # Full period statistics on minute buckets, never calculated from a sampled chart/page.
+        group = {'_id': None, 'minutos': {'$sum': 1}}
+        for field in CAMPOS_NUMERICOS:
+            group[field + '_min'] = {'$min': '$' + field + '.min'}
+            group[field + '_max'] = {'$max': '$' + field + '.max'}
+            group[field + '_sum'] = {'$sum': '$' + field + '.suma'}
+            group[field + '_n'] = {'$sum': '$' + field + '.n'}
+        rows = await get_database()['lecturas_minuto'].aggregate([
+            {'$match': {'id_empresa': id_empresa, 'id_dispositivo': id_dispositivo,
+                        'minuto': {'$gte': desde, '$lt': hasta}}}, {'$group': group}]).to_list(length=1)
+        if not rows:
+            return {}
+        row = rows[0]
+        return {field: {'min': row.get(field + '_min'), 'max': row.get(field + '_max'),
+                       'prom': row[field + '_sum'] / row[field + '_n'], 'n': row[field + '_n']}
+                for field in CAMPOS_NUMERICOS if row.get(field + '_n')}
 
 
     # ============================================================

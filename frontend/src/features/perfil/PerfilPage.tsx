@@ -6,6 +6,8 @@
  *    (escribir el nombre + contraseña) → cierra sesión.
  */
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { api } from '@/api/client'
 import { useId, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -31,6 +33,7 @@ export default function PerfilPage() {
         <div className="grid gap-6 lg:grid-cols-2">
           <DatosEmpresaCard key={empresa.id_empresa} empresa={empresa} />
           <PasswordCard />
+          <WelcomeEmailCard />
           <ZonaPeligro empresa={empresa} />
         </div>
       )}
@@ -44,6 +47,7 @@ export default function PerfilPage() {
 
 const empresaSchema = z.object({
   nombre: texto({ min: 2, max: 100 }),
+  nombre_ceo: z.string().trim().max(100).optional(),
   ruc: texto({ min: 8, max: 20 }).regex(/^[0-9]+$/, 'Solo dígitos'),
   sector: texto({ min: 2, max: 100 }),
   correo: correo(),
@@ -54,7 +58,7 @@ type EmpresaOut = z.output<typeof empresaSchema>
 const _checkEmpresa: (v: EmpresaOut) => EmpresaUpdate = (v) => v
 void _checkEmpresa
 
-const empresaDefaults = (e: Empresa): EmpresaIn => ({ nombre: e.nombre, ruc: e.ruc, sector: e.sector, correo: e.correo, telefono: e.telefono })
+const empresaDefaults = (e: Empresa): EmpresaIn => ({ nombre: e.nombre, nombre_ceo: e.nombre_ceo ?? '', ruc: e.ruc, sector: e.sector, correo: e.correo, telefono: e.telefono })
 
 function DatosEmpresaCard({ empresa }: { empresa: Empresa }) {
   const toast = useToast()
@@ -66,7 +70,8 @@ function DatosEmpresaCard({ empresa }: { empresa: Empresa }) {
 
   const submit = handleSubmit(async (body) => {
     try {
-      const actualizada = await actualizar.mutateAsync(body)
+      const { nombre_ceo, ...other } = body
+      const actualizada = await actualizar.mutateAsync({ ...other, ...(nombre_ceo ? { nombre_ceo } : {}) })
       reset(empresaDefaults(actualizada))
       toast.success('Datos de la empresa actualizados')
     } catch (e) {
@@ -88,15 +93,18 @@ function DatosEmpresaCard({ empresa }: { empresa: Empresa }) {
           </div>
         </dl>
         <div className="grid gap-4 sm:grid-cols-[1fr_12rem]">
-          <Field label="Razón social / nombre" error={err.nombre?.message} required>
+          <Field label="Nombre de la empresa" error={err.nombre?.message} required>
             <Input autoComplete="organization" {...register('nombre')} />
           </Field>
           <Field label="RUC" error={err.ruc?.message} required>
             <Input inputMode="numeric" className="font-mono" maxLength={20} {...register('ruc')} />
           </Field>
         </div>
+        <Field label="Nombre del CEO" error={err.nombre_ceo?.message}>
+          <Input placeholder="Nombre" autoComplete="given-name" {...register('nombre_ceo')} />
+        </Field>
         <Field label="Sector" error={err.sector?.message} required>
-          <Input placeholder="Logística y distribución" {...register('sector')} />
+          <Input placeholder="Alimentos" {...register('sector')} />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Correo" error={err.correo?.message} required hint="Se usa para iniciar sesión.">
@@ -117,6 +125,19 @@ function DatosEmpresaCard({ empresa }: { empresa: Empresa }) {
       </form>
     </Card>
   )
+}
+
+function WelcomeEmailCard() {
+  const { empresa } = useEmpresa()
+  const status = useQuery({ queryKey: ['empresa', 'bienvenida', empresa?.id_empresa], queryFn: () => api.get<{ status: string; intentos: number }>('/empresas/me/bienvenida'), refetchInterval: query => ['PENDIENTE', 'ENVIANDO'].includes(query.state.data?.status ?? '') ? 3000 : false })
+  const resend = useMutation({ mutationFn: () => api.post('/empresas/me/bienvenida/reintentar', {}), onSuccess: () => void status.refetch() })
+  const labels: Record<string, string> = { ENVIADO: 'Correo enviado', PENDIENTE: 'Pendiente de envío', CONFIRMACION_PENDIENTE: 'Verifica tu correo para recibir la bienvenida', CONFIGURACION_PENDIENTE: 'Pendiente de configurar el correo', ERROR: 'No se pudo enviar', ENVIANDO: 'Enviando o pendiente de confirmar', REVISAR_ENVIO: 'Es necesario revisar el resultado del envío', NO_SOLICITADO: 'Sin correo de bienvenida solicitado' }
+  return <Card title="Correo de bienvenida"><p className="mb-3 text-sm text-fg-muted">{status.isError ? 'No se pudo consultar el estado.' : labels[status.data?.status ?? ''] ?? 'Consultando…'}</p>
+    <Button variant="secondary" loading={resend.isPending} disabled={!empresa?.nombre_ceo || !empresa?.correo_verificado || ['ENVIADO', 'ENVIANDO', 'REVISAR_ENVIO'].includes(status.data?.status ?? '')} onClick={() => resend.mutate()}>Reintentar bienvenida</Button>
+    {!empresa?.correo_verificado && <p className="mt-2 text-xs text-fg-muted">Verifica tu correo para recibir la bienvenida.</p>}
+    {!empresa?.nombre_ceo && <p className="mt-2 text-xs text-fg-muted">Guarda el nombre del CEO para personalizar la bienvenida.</p>}
+    {resend.isError && <p role="alert" className="mt-3 text-sm text-danger">{resend.error instanceof ApiError ? resend.error.detail : 'No se pudo solicitar el envío.'}</p>}
+  </Card>
 }
 
 /* ------------------------------------------------------------------ */

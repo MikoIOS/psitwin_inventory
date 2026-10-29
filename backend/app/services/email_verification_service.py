@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import asyncio
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
@@ -147,6 +149,8 @@ class EmailVerificationService:
         code: str,
     ) -> dict[str, Any]:
         entity = await self._get_entity_record(entity_type, entity_id)
+        if entity and entity.get('requiere_verificacion_registro') is True:
+            return {'verified': False, 'status': 'USE_EMAIL_LINK'}
         if not entity:
             return {
                 "verified": False,
@@ -367,6 +371,19 @@ class EmailVerificationService:
             verified=True,
         )
 
+        # SMTP failures must never undo validation or fail the authenticated request.
+        name = str((updated_entity or {}).get('nombre_ceo') or (updated_entity or {}).get('nombre') or '').strip()
+        try:
+            await asyncio.to_thread(
+                self.sender,
+                normalized_email,
+                '[PsiTwin] Correo validado correctamente',
+                f'¡Hola, {name}!\n\nTu correo {normalized_email} se validó correctamente.\n'
+                'Ya puedes seguir utilizando PsiTwin con tu cuenta verificada.',
+            )
+        except Exception:
+            logging.getLogger(__name__).warning('verification_confirmation_failed entity_type=%s entity_id=%s', entity_type, entity_id)
+
         return {
             "verified": True,
             "status": "VERIFIED",
@@ -459,7 +476,7 @@ class EmailVerificationService:
             (
                 settings.smtp_host,
                 settings.smtp_user,
-                settings.smtp_password,
+                settings.smtp_secret,
                 settings.smtp_from or settings.smtp_user,
             )
         ):
@@ -471,9 +488,7 @@ class EmailVerificationService:
             message["To"] = recipient
             message["Subject"] = subject
             message.set_content(body)
-            with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=20) as server:
-                if settings.smtp_use_tls:
-                    server.starttls()
-                server.login(settings.smtp_user, settings.smtp_password)
-                server.send_message(message)
-        return {"status": "MOCKED", "recipient": recipient, "subject": subject}
+            from app.services.smtp_transport import send_message
+            send_message(message)
+            return {'status': 'SENT'}
+        raise RuntimeError('El correo no está habilitado o SMTP no está configurado')

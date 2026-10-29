@@ -88,6 +88,7 @@ export function useOrden(id: string | undefined) {
 /* --------------------------- Mutations: orden --------------------------- */
 
 function onOrdenActualizada(qc: QueryClient, orden: OrdenReposicion) {
+  void qc.invalidateQueries({ queryKey: ['abastecimiento'] })
   qc.setQueryData(queryKeys.ordenes.detail(orden.id_orden_reposicion), orden)
   return qc.invalidateQueries({ queryKey: queryKeys.ordenes.all })
 }

@@ -1,3 +1,5 @@
+import { aDetalleCreate } from './recepcionPayload'
+import { NivelSelect, ZonaSelect } from '@/components/selects'
 /**
  * Registrar una recepción de mercadería en UN SOLO PASO (solo OPERARIO; el autor sale de su token).
  *
@@ -28,7 +30,7 @@ import { useProductos } from '@/api/productos'
 import { queryKeys } from '@/api/queryKeys'
 import { useRacksDisponibles } from '@/api/racks'
 import { useCreateRecepcion, useDetallesRecepcionPorOrden } from '@/api/recepciones'
-import type { DetalleRecepcionCreate, EstadoRecepcion, OrdenReposicion, RecepcionMercaderia } from '@/api/types'
+import type { EstadoRecepcion, OrdenReposicion, RecepcionMercaderia } from '@/api/types'
 import { Button, Checkbox, EmptyState, ErrorState, Field, Input, LoadingBlock, Modal, Select, StatusBadge, Textarea, useToast } from '@/components/ui'
 import { cn } from '@/lib/cn'
 import { formatNumero } from '@/lib/format'
@@ -58,6 +60,7 @@ const lineaSchema = z
     cantidad_recibida: z.string(),
     cantidad_rechazada: z.string(),
     id_rack: z.string(),
+    id_nivel: z.string(),
     /** Solo se usan si hay que crear el inventario del producto en el rack elegido. */
     stock_minimo: z.string(),
     stock_maximo: z.string(),
@@ -70,10 +73,10 @@ const lineaSchema = z
     if (!l.incluir) return
     const issue = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message })
     const cant = num(l.cantidad_recibida)
-    if (!Number.isInteger(cant) || cant <= 0) issue('cantidad_recibida', 'Entero mayor que 0')
+    if (!Number.isFinite(cant) || cant <= 0 || Math.abs(cant * 1000 - Math.round(cant * 1000)) > .000001) issue('cantidad_recibida', 'Cantidad positiva con hasta tres decimales')
     const rech = num(l.cantidad_rechazada)
     const hayRechazo = l.estado_recepcion === 'CONFORME' && rech > 0
-    if (l.estado_recepcion === 'CONFORME' && (!Number.isInteger(rech) || rech < 0 || rech > cant)) issue('cantidad_rechazada', 'Entero entre 0 y lo recibido')
+    if (l.estado_recepcion === 'CONFORME' && (!Number.isFinite(rech) || rech < 0 || rech > cant)) issue('cantidad_rechazada', 'Entero entre 0 y lo recibido')
     if (!l.id_rack) issue('id_rack', 'Elige el rack de destino')
     const t = l.temperatura_recepcion.trim()
     if (t !== '' && !Number.isFinite(num(t))) issue('temperatura_recepcion', 'Número no válido')
@@ -81,10 +84,7 @@ const lineaSchema = z
       issue('comentario_recepcion', 'Indica el motivo (obligatorio si hay rechazo o no es conforme)')
     }
     if (l.comentario_recepcion.trim().length > 1000) issue('comentario_recepcion', 'Máximo 1000 caracteres')
-    const mi = num(l.stock_minimo)
-    const ma = num(l.stock_maximo)
-    if (l.stock_minimo.trim() !== '' && (!Number.isInteger(mi) || mi < 0)) issue('stock_minimo', 'Entero ≥ 0')
-    if (l.stock_maximo.trim() !== '' && (!Number.isInteger(ma) || ma < 0 || (Number.isInteger(mi) && ma < mi))) issue('stock_maximo', 'Entero ≥ al mínimo')
+
   })
 
 const schema = z
@@ -97,41 +97,6 @@ const schema = z
 type In = z.input<typeof schema>
 type Out = z.output<typeof schema>
 type LineaIn = In['lineas'][number]
-
-/** "2026-10-01" (input date, hora local) → ISO. */
-function fechaAIso(v: string): string | null {
-  if (!v) return null
-  const d = new Date(`${v}T00:00:00`)
-  return Number.isNaN(d.getTime()) ? null : d.toISOString()
-}
-
-function aDetalleCreate(l: LineaIn, idInventario: string): DetalleRecepcionCreate {
-  const t = l.temperatura_recepcion.trim()
-  const comentario = l.comentario_recepcion.trim() || null
-  const recibida = num(l.cantidad_recibida)
-  // RECHAZADO = no se acepta nada; EN_EVALUACION = aún no se decide (se resuelve después).
-  const rechazada = l.estado_recepcion === 'RECHAZADO' ? recibida : l.estado_recepcion === 'CONFORME' ? num(l.cantidad_rechazada) : 0
-  return {
-    id_detalle_reposicion: l.id_detalle_reposicion,
-    id_inventario: idInventario,
-    id_rack: l.id_rack,
-    stock_minimo: l.stock_minimo.trim() === '' ? 0 : num(l.stock_minimo),
-    stock_maximo: l.stock_maximo.trim() === '' ? Math.max(unidadesAUbicar(l), 1) : num(l.stock_maximo),
-    cantidad_recibida: recibida,
-    cantidad_rechazada: rechazada,
-    motivo_rechazo: rechazada > 0 ? comentario : null,
-    fecha_vencimiento: fechaAIso(l.fecha_vencimiento),
-    temperatura_recepcion: t === '' ? null : num(t),
-    estado_recepcion: l.estado_recepcion,
-    comentario_recepcion: comentario,
-  }
-}
-
-/** Mínimo / máximo sugeridos para un inventario nuevo (editables). */
-function sugerirMinMax(unidades: number) {
-  const minimo = Math.max(1, Math.round(unidades * 0.2))
-  return { minimo: String(minimo), maximo: String(Math.max(minimo, unidades * 2)) }
-}
 
 /* ------------------------------------------------------------------ */
 
@@ -291,6 +256,7 @@ function RecepcionForm({
         cantidad_recibida: String(d && d.cantidad > 0 ? Math.min(d.cantidad, l.pendiente) : l.pendiente),
         cantidad_rechazada: '0',
         id_rack: '',
+        id_nivel: '',
         stock_minimo: '',
         stock_maximo: '',
         fecha_vencimiento: d?.fecha_vencimiento?.slice(0, 10) ?? '',
@@ -306,7 +272,15 @@ function RecepcionForm({
   const err = formState.errors
   const errorRaiz = (err as FieldErrors<In> & { root?: { message?: string } }).root?.message
 
+  const [receiptKey] = useState(() => crypto.randomUUID())
   const submit = handleSubmit(async (v) => {
+    for (const [index, row] of v.lineas.entries()) {
+      if (!row.incluir) continue
+      const line = pendientes.find(p => p.detalle.id_detalle_reposicion === row.id_detalle_reposicion)?.detalle
+      if (line?.unidad !== 'kg' && (!Number.isInteger(num(row.cantidad_recibida)) || !Number.isInteger(num(row.cantidad_rechazada)))) {
+        form.setError(`lineas.${index}.cantidad_recibida`, { message: 'Este producto se recibe en unidades enteras' }); return
+      }
+    }
     apiError.clear()
     // Sobre-recepción: se valida aquí porque el backend crea la recepción antes que sus detalles (un 409 la deja vacía).
     let excede = false
@@ -346,7 +320,9 @@ function RecepcionForm({
       const detalles = v.lineas
         .filter((l) => l.incluir)
         .map((l) => aDetalleCreate(l, inventario.id_inventario))
+
       const rec = await crear.mutateAsync({
+        clave_idempotencia: receiptKey,
         id_orden_reposicion: orden.id_orden_reposicion,
         observaciones_generales: v.observaciones_generales,
         detalles,
@@ -443,6 +419,7 @@ function LineaFila({
   const productos = useProductos()
   const producto = productos.data?.find((p) => p.id_producto === linea.detalle.id_producto)
   const pref = `lineas.${index}` as const
+  const [zonaFiltro,setZonaFiltro] = useState('')
   const [incluir, estado, recibidaTxt, rechazadaTxt, idRack] = useWatch({
     control,
     name: [`${pref}.incluir`, `${pref}.estado_recepcion`, `${pref}.cantidad_recibida`, `${pref}.cantidad_rechazada`, `${pref}.id_rack`],
@@ -459,12 +436,12 @@ function LineaFila({
   const invEn = (idR: string) => (invsQ.data ?? []).find((i) => i.id_rack === idR && i.id_producto === linea.detalle.id_producto)
   const racks = [...(racksQ.data ?? [])].sort((a, b) => Number(!!invEn(b.id_rack)) - Number(!!invEn(a.id_rack)) || b.libre_kg - a.libre_kg)
   const kg = unidades * (producto?.peso ?? 0)
-  const opcionesRack = racks.map((r) => {
+  const opcionesRack = racks.filter(r => !zonaFiltro || r.id_zona === zonaFiltro).map((r) => {
     const inv = invEn(r.id_rack)
     const temp = temperaturaRack(r)
     return {
       value: r.id_rack,
-      label: `${r.codigo} · ${r.nombre_zona ?? 'Zona'} · nivel ${r.nivel} · ${formatNumero(r.libre_kg)} kg libres${temp ? ` · ${temp}` : ''}${inv ? ` · ya tiene este producto (stock ${formatNumero(inv.stock_actual)})` : ''}`,
+      label: `${r.codigo} · ${r.nombre_zona ?? 'Zona'} · ${r.max_niveles ?? 1} niveles · ${formatNumero(r.libre_kg)} kg libres${temp ? ` · ${temp}` : ''}${inv ? ` · ya tiene este producto (stock ${formatNumero(inv.stock_actual)})` : ''}`,
     }
   })
   const rackSel = racks.find((r) => r.id_rack === idRack)
@@ -500,7 +477,7 @@ function LineaFila({
       {incluir && (
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Cantidad recibida" error={errores?.cantidad_recibida?.message} required>
-            <Input size="lg" type="number" inputMode="numeric" min={1} step={1} suffix="u." {...register(`${pref}.cantidad_recibida`)} />
+            <Input size="lg" type="number" inputMode="decimal" min={.001} step={linea.detalle.unidad === 'kg' ? '.001' : '1'} suffix={linea.detalle.unidad ?? 'unidad'} {...register(`${pref}.cantidad_recibida`)} />
           </Field>
           {estado === 'CONFORME' && (
             <Field label="Rechazadas" error={errores?.cantidad_rechazada?.message} hint="Unidades que no se aceptan.">
@@ -541,6 +518,7 @@ function LineaFila({
           >
             <Input size="lg" maxLength={1000} placeholder={estado === 'CONFORME' ? '' : 'Cajas golpeadas'} {...register(`${pref}.comentario_recepcion`)} />
           </Field>
+          <Field label="Zona de destino"><ZonaSelect idAlmacen={idAlmacen} value={zonaFiltro} onChange={e => {setZonaFiltro(e.target.value);setValue(`${pref}.id_rack`, '');setValue(`${pref}.id_nivel`, '')}} /></Field>
           <Field
             label="Guardar en el rack"
             error={errores?.id_rack?.message}
@@ -575,26 +553,19 @@ function LineaFila({
                     onBlur={field.onBlur}
                     onChange={(e) => {
                       field.onChange(e.target.value)
-                      const s = sugerirMinMax(Math.max(unidades, 1))
-                      setValue(`${pref}.stock_minimo`, s.minimo)
-                      setValue(`${pref}.stock_maximo`, s.maximo)
+                      setValue(`${pref}.id_nivel`, '')
                     }}
                   />
                 )}
               />
             )}
           </Field>
+          <Field label="Nivel de destino"><NivelSelect idRack={idRack || undefined} {...register(`${pref}.id_nivel`)} /></Field>
           {crearInventario && (
             <>
               <p className="flex items-start gap-2 text-sm text-fg-muted sm:col-span-2 lg:col-span-1">
                 El producto aún no está en el rack {rackSel?.codigo}: se creará su inventario (stock inicial 0).
               </p>
-              <Field label="Stock mínimo" error={errores?.stock_minimo?.message}>
-                <Input type="number" inputMode="numeric" min={0} step={1} suffix="u." {...register(`${pref}.stock_minimo`)} />
-              </Field>
-              <Field label="Stock máximo" error={errores?.stock_maximo?.message}>
-                <Input type="number" inputMode="numeric" min={0} step={1} suffix="u." {...register(`${pref}.stock_maximo`)} />
-              </Field>
             </>
           )}
         </div>

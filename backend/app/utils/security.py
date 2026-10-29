@@ -12,6 +12,9 @@ from typing import (
 
 import bcrypt
 import jwt
+from pwdlib import PasswordHash
+
+_password_hash = PasswordHash.recommended()
 
 from app.config.settings import (
     settings
@@ -40,16 +43,7 @@ def hash_password(
     password: str
 ) -> str:
 
-    hashed = bcrypt.hashpw(
-        password.encode(
-            "utf-8"
-        ),
-        bcrypt.gensalt()
-    )
-
-    return hashed.decode(
-        "utf-8"
-    )
+    return _password_hash.hash(password)
 
 
 def verify_password(
@@ -58,6 +52,9 @@ def verify_password(
 ) -> bool:
 
     try:
+
+        if hashed_password.startswith('$argon2'):
+            return _password_hash.verify(plain_password, hashed_password)
 
         return bcrypt.checkpw(
             plain_password.encode(

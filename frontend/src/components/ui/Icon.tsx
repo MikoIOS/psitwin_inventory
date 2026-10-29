@@ -5,6 +5,13 @@
 import type { SVGProps } from 'react'
 
 const PATHS = {
+  thermometer: 'M9 14.5V5a3 3 0 0 1 6 0v9.5a5 5 0 1 1-6 0ZM12 8v10M10 18a2 2 0 1 0 4 0 2 2 0 0 0-4 0',
+  droplet: 'M12 3C9 8 5 11 5 15a7 7 0 0 0 14 0c0-4-4-7-7-12Z',
+  zap: 'm13 2-9 12h7l-1 8 10-12h-8l1-8Z',
+  door: 'M5 21V3h14v18M2 21h20M15 12h.01',
+  psi: 'M12 3v18M5 5v5a7 7 0 0 0 14 0V5M8 21h8',
+  mic: 'M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0V5ZM5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8',
+  chart: 'M3 3v18h18M7 15l4-5 4 3 5-8',
   warehouse: 'M3 21V8l9-5 9 5v13M7 21v-8h10v8M7 17h10',
   box: 'M21 8 12 3 3 8v8l9 5 9-5V8ZM3 8l9 5 9-5M12 13v8',
   layers: 'm12 3 9 5-9 5-9-5 9-5ZM3 13l9 5 9-5M3 17l9 5 9-5',

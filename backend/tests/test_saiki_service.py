@@ -65,7 +65,7 @@ def test_concurrent_companies_use_real_registry_with_separate_scopes(monkeypatch
         async def visible(user):
             return {user.id_empresa + "-inventory"}
 
-        async def query():
+        async def query(identifier):
             nonlocal count
             count += 1
             if count == 1:
@@ -73,18 +73,20 @@ def test_concurrent_companies_use_real_registry_with_separate_scopes(monkeypatch
                 await release.wait()
             else:
                 release.set()
-            return [{"id_inventario": "A-inventory"}, {"id_inventario": "B-inventory"}]
+            return [{"id_inventario": identifier, 'estado': 'ACTIVA'}]
 
         monkeypatch.setattr("app.services.saiki_tools.AccesoService.ids_inventarios", visible)
-        monkeypatch.setattr(registry.alerta_service, "listar_activas", query)
-        monkeypatch.setattr(registry.recomendacion_service, "listar", query)
-        monkeypatch.setattr(registry.movimiento_service, "obtener_movimientos", query)
+        monkeypatch.setattr(registry.alerta_service, "listar_por_inventario", query)
+        async def active_for_company(company): return await query(company + '-inventory')
+        monkeypatch.setattr(registry.alerta_service, 'listar_activas_por_empresa', active_for_company)
+        monkeypatch.setattr(registry.recomendacion_service, "listar_por_inventario", query)
+        monkeypatch.setattr(registry.movimiento_service, "obtener_por_inventario", query)
         first = asyncio.create_task(registry.execute(name, {}, SimpleNamespace(id_empresa="A")))
         await entered.wait()
         second = asyncio.create_task(registry.execute(name, {}, SimpleNamespace(id_empresa="B")))
         a, b = await asyncio.wait_for(asyncio.gather(first, second), 2)
-        assert a[0] == [{"id_inventario": "A-inventory"}]
-        assert b[0] == [{"id_inventario": "B-inventory"}]
+        assert {row['id_inventario'] for row in a[0]} == {'A-inventory'}
+        assert {row['id_inventario'] for row in b[0]} == {'B-inventory'}
 
     asyncio.run(scenario())
 
@@ -124,7 +126,7 @@ def test_greeting_does_not_query_tools_or_ollama(monkeypatch):
     result = asyncio.run(service.ask(SaikiAskRequest(message="Hola Saiki")))
 
     assert result["source"] == "router"
-    assert result["answer"] == "¡Hola, soy Saiki!"
+    assert 'Soy Saiki' in result['answer'] and 'PsiTwin' in result['answer']
     assert result["data"] == {}
 
 
@@ -537,7 +539,7 @@ def test_mongodb_failure_is_not_reported_as_empty_inventory(monkeypatch):
 
     monkeypatch.setattr(service, "_agent_loop", failing_loop)
     with pytest.raises(Exception) as raised:
-        asyncio.run(service.ask(SaikiAskRequest(message="estado")))
+        asyncio.run(service.ask(SaikiAskRequest(message="Analiza la disponibilidad")))
 
     assert raised.value.status_code == 503
     assert "verificar el inventario" in raised.value.detail
@@ -557,7 +559,7 @@ def test_ollama_failures_keep_distinct_http_status(monkeypatch, failure, status_
     with pytest.raises(Exception) as raised:
         asyncio.run(
             service.ask(
-                SaikiAskRequest(message="Explica una situación operacional")
+                SaikiAskRequest(message="Analiza la disponibilidad")
             )
         )
 

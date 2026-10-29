@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Literal
 
 from pydantic import (
     BaseModel,
@@ -13,6 +13,10 @@ from pydantic import (
 # ============================================================
 
 class ZonaCreate(BaseModel):
+    codigo: str | None = Field(default=None, min_length=1, max_length=50)
+    descripcion: str | None = Field(default=None, max_length=1000)
+    estado: Literal['ACTIVO', 'INACTIVO', 'ARCHIVADO'] = 'ACTIVO'
+    max_racks: int | None = Field(default=None, ge=1)
 
     id_almacen: str
 
@@ -48,6 +52,10 @@ class ZonaCreate(BaseModel):
 # ============================================================
 
 class ZonaUpdate(BaseModel):
+    codigo: str | None = Field(default=None, min_length=1, max_length=50)
+    descripcion: str | None = Field(default=None, max_length=1000)
+    estado: Literal['ACTIVO', 'INACTIVO', 'ARCHIVADO'] | None = None
+    max_racks: int | None = Field(default=None, ge=1)
 
     nombre: Optional[str] = Field(
         default=None,
@@ -87,6 +95,10 @@ class ZonaUpdate(BaseModel):
 # ============================================================
 
 class ZonaResponse(BaseModel):
+    codigo: str | None = None
+    descripcion: str | None = None
+    estado: Literal['ACTIVO', 'INACTIVO', 'ARCHIVADO'] = 'ACTIVO'
+    max_racks: int | None = None
 
     id: str = Field(
         validation_alias=AliasChoices(

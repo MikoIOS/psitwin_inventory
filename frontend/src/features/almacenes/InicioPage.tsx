@@ -1,3 +1,4 @@
+import { WarehouseMapSelector } from '@/features/almacenes/WarehouseMap'
 /**
  * Inicio / dashboard: almacenes de la empresa (tarjetas) + resumen de alertas de inventario.
  * Los contadores usan GET /inventarios acotado a la empresa con useUbicaciones().perteneceAEmpresa.
@@ -58,6 +59,7 @@ export default function InicioPage() {
       />
 
       <ResumenAlertas />
+      <WarehouseMapSelector />
 
       <section aria-labelledby="titulo-almacenes" className="mt-8">
         <div className="mb-3 flex items-baseline justify-between gap-3">

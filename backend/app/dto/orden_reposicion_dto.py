@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, Field
+from app.dto.cantidad import Cantidad
 
 from app.dto.detalle_reposicion_dto import (
     DetalleReposicionCreate
@@ -27,6 +28,7 @@ class OrigenOrden(str, Enum):
 
 
 class OrdenReposicionCreate(BaseModel):
+    clave_idempotencia: str | None = Field(default=None, min_length=8, max_length=100)
     id_recomendacion: Optional[str] = None
     # Se ignora: se toma del token.
     id_empresa: Optional[str] = None
@@ -58,6 +60,11 @@ class OrdenReposicionUpdate(BaseModel):
 
 
 class OrdenReposicionResponse(BaseModel):
+    total_centimos: int = 0
+    moneda: str = 'PEN'
+    historial_estados: list[dict] = Field(default_factory=list)
+    despachos: list[dict] = Field(default_factory=list)
+    resolucion_pendiente: dict | None = None
     id_orden_reposicion: str
     id_recomendacion: Optional[str] = None
 
@@ -108,7 +115,7 @@ class DevolverOrdenRequest(BaseModel):
 class LineaDespacho(BaseModel):
     id_detalle_reposicion: str
 
-    cantidad: int = Field(
+    cantidad: Cantidad = Field(
         ...,
         gt=0
     )
@@ -119,6 +126,8 @@ class LineaDespacho(BaseModel):
 
 
 class DespachoRequest(BaseModel):
+    clave_idempotencia: str | None = Field(default=None, min_length=8, max_length=100)
+    conformidad: bool = True
     lineas: list[LineaDespacho] = Field(
         min_length=1
     )

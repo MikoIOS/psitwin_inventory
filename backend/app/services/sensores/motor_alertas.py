@@ -45,7 +45,8 @@ from typing import (
 # ============================================================
 
 
-SIN_DATOS_S = 5
+from app.config.settings import settings
+SIN_DATOS_S = settings.sensor_disconnect_seconds
 
 VENTANA_APERTURAS_S = 3600
 

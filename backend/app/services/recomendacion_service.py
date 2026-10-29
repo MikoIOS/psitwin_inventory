@@ -642,6 +642,8 @@ class RecomendacionService:
         # ----------------------------------------------------
 
         orden_data = OrdenReposicionCreate(
+            clave_idempotencia='recomendacion-' + id_recomendacion,
+            lineas=[DetalleReposicionCreate(id_producto=id_producto, cantidad_solicitada=cantidad_recomendada)],
 
             id_recomendacion=
                 id_recomendacion,
@@ -691,54 +693,10 @@ class RecomendacionService:
                 )
             )
 
-        # ----------------------------------------------------
-        # 6. CREAR DETALLE
-        #
-        # Si falla el detalle, eliminamos la orden
-        # PENDIENTE para no dejar una orden vacía.
-        # ----------------------------------------------------
-
-        try:
-
-            detalle_data = (
-                DetalleReposicionCreate(
-
-                    id_producto=
-                        id_producto,
-
-                    cantidad_solicitada=
-                        int(
-                            cantidad_recomendada
-                        ),
-
-                    costo_unitario=
-                        costo_unitario
-                )
-            )
-
-            detalle = (
-                await self.detalle_reposicion_service
-                .crear(
-                    id_orden,
-                    detalle_data
-                )
-            )
-
-        except Exception:
-
-            try:
-
-                await (
-                    self.orden_reposicion_service
-                    .eliminar(
-                        id_orden
-                    )
-                )
-
-            except Exception:
-                pass
-
-            raise
+        # Header, reserved offer and price snapshot are created together. Never
+        # round kilograms to integer units or create an empty procurement request.
+        from app.database.mongodb import get_database
+        detalle = await get_database()['detalles_reposicion'].find_one({'id_orden_reposicion': id_orden}, {'_id': 0})
 
         # ----------------------------------------------------
         # 7. MARCAR RECOMENDACION COMO APLICADA

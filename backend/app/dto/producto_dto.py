@@ -1,14 +1,24 @@
 from datetime import datetime
 from typing import Optional
+from typing import Literal
 
 from pydantic import (
     BaseModel,
     Field,
+    field_validator,
     model_validator
 )
 
 
 class ProductoCreate(BaseModel):
+    codigo: str | None = Field(default=None, max_length=80)
+    unidad: Literal['kg', 'unidad'] = 'unidad'
+    activo: bool = True
+
+    @field_validator('nombre', 'categoria', 'familia', mode='before')
+    @classmethod
+    def normalizar_texto(cls, value):
+        return value.strip() if isinstance(value, str) else value
 
     # Se ignora: se toma del token.
     id_empresa: Optional[str] = None
@@ -43,12 +53,14 @@ class ProductoCreate(BaseModel):
     # Obligatorio: kg por unidad (carga de los racks).
     peso: float = Field(
         ...,
-        gt=0
+        gt=0,
+        allow_inf_nan=False
     )
 
     volumen: Optional[float] = Field(
         default=None,
-        gt=0
+        gt=0,
+        allow_inf_nan=False
     )
 
     stock: int = Field(
@@ -102,16 +114,23 @@ class ProductoCreate(BaseModel):
 
 
 class ProductoUpdate(BaseModel):
+    codigo: str | None = Field(default=None, max_length=80)
+    activo: bool | None = None
+
+    @field_validator('nombre', 'categoria', 'familia', mode='before')
+    @classmethod
+    def normalizar_texto(cls, value):
+        return value.strip() if isinstance(value, str) else value
 
     id_rack: Optional[str] = None
 
-    nombre: Optional[str] = None
-    categoria: Optional[str] = None
-    familia: Optional[str] = None
+    nombre: Optional[str] = Field(default=None, min_length=2, max_length=150)
+    categoria: Optional[str] = Field(default=None, min_length=2, max_length=100)
+    familia: Optional[str] = Field(default=None, min_length=2, max_length=100)
     marca: Optional[str] = None
 
-    peso: Optional[float] = None
-    volumen: Optional[float] = None
+    peso: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    volumen: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
 
     stock: Optional[int] = Field(
         default=None,
@@ -133,8 +152,21 @@ class ProductoUpdate(BaseModel):
         ge=1
     )
 
+    @model_validator(mode='after')
+    def preservar_campos_obligatorios(self):
+        # Omitted fields are unchanged; explicit null must not corrupt a product
+        # or turn a valid update into a response serialization error.
+        required = {'nombre', 'categoria', 'familia', 'peso', 'requiere_refrigeracion', 'lead_time_dias', 'vida_util_dias'}
+        for field in required & self.model_fields_set:
+            if getattr(self, field) is None:
+                raise ValueError(f'{field} no puede ser nulo')
+        return self
+
 
 class ProductoResponse(BaseModel):
+    codigo: str | None = None
+    unidad: Literal['kg', 'unidad'] = 'unidad'
+    activo: bool = True
 
     id_producto: str
 

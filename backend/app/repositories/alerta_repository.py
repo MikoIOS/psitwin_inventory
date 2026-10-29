@@ -9,6 +9,9 @@ from app.database.mongodb import (
 
 
 class AlertaRepository:
+    async def listar_activas_por_empresa(self, id_empresa):
+        return await self.collection().find({'id_empresa': id_empresa, 'estado': {'$in': ['ACTIVA', 'VISTA']}},
+            {'_id': 0}).sort('fecha_creacion', -1).to_list(length=1000)
 
     COLLECTION_NAME = "alertas"
 

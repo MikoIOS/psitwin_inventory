@@ -62,6 +62,11 @@ class DetalleInventarioService:
             raise HTTPException(404, "Producto no encontrado en la empresa del almacén")
         if not zona or zona.get("id_almacen") != header["id_almacen"]:
             raise HTTPException(409, "El rack no pertenece al almacén del inventario")
+        if data.id_nivel:
+            from app.database.mongodb import get_database
+            level = await get_database()["niveles"].find_one({'id_nivel': data.id_nivel, 'id_rack': data.id_rack})
+            if not level or level.get('estado', 'ACTIVO') != 'ACTIVO':
+                raise HTTPException(409, 'El nivel no pertenece al rack seleccionado')
 
         # --------------------------------------------------------
         # VALIDAR PRODUCTO
@@ -143,6 +148,7 @@ class DetalleInventarioService:
                 )
                 ==
                 data.id_rack
+                and inventario.get('id_nivel') == data.id_nivel
             ):
 
                 raise HTTPException(

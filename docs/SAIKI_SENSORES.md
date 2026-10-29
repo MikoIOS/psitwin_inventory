@@ -11,3 +11,19 @@ La onda es el componente oficial `AgentAudioVisualizerWave` de LiveKit, obtenido
 Sin conexión o lecturas actuales se muestra «Sin datos disponibles». El historial sigue siendo consultable y no se usa para afirmar que un equipo funciona ahora. No hay cambios de esquema, escrituras nuevas a MongoDB, modificaciones de forecasting ni órdenes sobre equipos físicos.
 
 Validación automatizada: `npm run build`; `pytest tests/test_saiki_sensors.py tests/test_motor_alertas.py tests/test_saiki_service.py tests/test_saiki_request_semantics.py tests/test_saiki_conversation_quality.py -q`. Las pruebas de sensores usan mocks; no equivalen a una validación con hardware real. Para comprobar el despliegue, usar una sesión EMPRESA y verificar sensores conectados/desconectados, incidente ALTO/CRITICO, descarte, posposición, historial y permisos de micrófono. No crear incidentes ficticios en producción para probarlo.
+
+## Conversación de voz persistente y navegación guiada
+
+`SaikiSessionProvider`, dentro del layout autenticado y restringido a EMPRESA, conserva mensajes, contexto y una sola sesión de voz al cambiar rutas. No persiste conversaciones en MongoDB ni en localStorage. Salir de la cuenta, recargar o cerrar la pestaña termina la sesión; no activa el micrófono automáticamente al volver.
+
+- **Iniciar conversación por voz** solicita reconocimiento del navegador con una acción del usuario. Las preguntas finales se envían automáticamente. El motor vuelve a escuchar después de silencio o al terminar de hablar, sin que el usuario tenga que pulsar el botón otra vez.
+- **Pausar** detiene reconocimiento y reproducción. **Reanudar** vuelve a escuchar. **Salir de la voz** termina la sesión y cancela la reproducción. También reconoce los comandos exactos «Saiki, pausa» y «Saiki, salir» mientras escucha.
+- El micrófono se suspende durante las consultas y las respuestas habladas. La reproducción se divide en fragmentos breves. Los errores de permiso o conexión dejan la sesión pausada, sin ciclos de reintentos de micrófono.
+- Al navegar fuera de Saiki con la voz activa, aparece una mini ventana con estado, respuesta, controles y entrada de texto. **Ampliar** vuelve al chat completo sin perder la conversación.
+- «Abre inventario» o «Muéstrame los sensores» navega a rutas locales autorizadas de solo lectura. Las consultas informativas ofrecen un enlace sin cambiar de página. No ejecuta rutas o acciones arbitrarias sugeridas por Qwen, ni realiza operaciones sobre stock/equipos.
+
+El diseño orbital azul/violeta usa la onda oficial y estados reales de la sesión; respeta movimiento reducido. Los gráficos reutilizan `Grafico`, `useDispositivos`, `useLecturas` y los rangos efectivos existentes. Permite escoger equipo, temperatura interna/ambiente, humedad o corriente y ventanas de 1, 6, 24 horas o 7 días. Las tablas de inventario solo muestran datos estructurados devueltos por el backend.
+
+`SaikiAskRequest` añade `id_dispositivo` opcional y `sensor_horas` entre 1 y 168. Al pedir una explicación de un equipo, el servicio verifica su autorización y lee el mismo periodo de historial mediante `DispositivoService.lecturas`. Informa extremos de los puntos devueltos y distingue lecturas históricas de conexión actual; no rellena ausencias. El equipo seleccionado se conserva para preguntas siguientes y se puede quitar; una consulta explícita de inventario/productos cambia ese contexto.
+
+Pruebas adicionales: `npm run test:ui` verifica silencio/reinicio, pausa/reanudación, cierre, permisos, ausencia de autoescucha durante respuestas, fragmentos de voz, navegación con historial y cancelación al salir del layout. Las pruebas de micrófono y voz usan dobles del navegador; no solicitan acceso real a audio ni crean datos en MongoDB.

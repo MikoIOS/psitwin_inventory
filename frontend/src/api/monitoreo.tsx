@@ -110,6 +110,7 @@ export function useMonitoreo(idZona?: string, onAlerta?: (evento: 'ABIERTA' | 'R
         }
         setDispositivos((prev) => aplicarMensaje(prev, m))
         if (m.tipo === 'alerta') {
+          void qc.invalidateQueries({ queryKey: ['plano'] })
           void qc.invalidateQueries({ queryKey: alertasKeys.all })
           void qc.invalidateQueries({ queryKey: dispositivosKeys.all })
           onAlertaRef.current?.(m.evento, m.alerta, m.alerta.id_dispositivo ? dispRef.current.get(m.alerta.id_dispositivo) : undefined)

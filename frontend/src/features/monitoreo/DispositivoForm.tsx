@@ -1,3 +1,5 @@
+import { useQuery } from '@tanstack/react-query'
+import { api } from '@/api/client'
 /**
  * Gestión de dispositivos (solo EMPRESA):
  *  - `DispositivoFormModal`: crear (almacén → zona → rack opcional) o editar (nombre, rack, activo); en ambos, límites
@@ -26,6 +28,7 @@ const schema = z
     id_almacen: idRequerido('Elige un almacén'),
     id_zona: idRequerido('Elige una zona'),
     id_rack: z.string(),
+    id_nivel: z.string(),
     activo: z.boolean(),
     t_int: rango(),
     t_amb: rango(),
@@ -64,6 +67,7 @@ function defaults(d: Dispositivo | null): In {
     id_almacen: d?.id_almacen ?? '',
     id_zona: d?.id_zona ?? '',
     id_rack: d?.id_rack ?? '',
+    id_nivel: d?.id_nivel ?? '',
     activo: d?.activo ?? true,
     t_int: r('t_int'),
     t_amb: r('t_amb'),
@@ -100,6 +104,8 @@ function Abierto({ onClose, dispositivo, onCreado }: { onClose: () => void; disp
   const editando = !!dispositivo
   const form = useForm<In, unknown, Out>({ resolver: zodResolver(schema), defaultValues: defaults(dispositivo) })
   const { register, handleSubmit, setValue, control, formState } = form
+  const selectedRack = form.watch('id_rack')
+  const levels = useQuery({ queryKey: ['niveles', selectedRack], queryFn: () => api.get<{id_nivel: string; numero: number}[]>('/abastecimiento/racks/' + encodeURIComponent(selectedRack) + '/niveles'), enabled: !!selectedRack })
   const err = formState.errors
   const [idAlmacen, idZona] = useWatch({ control, name: ['id_almacen', 'id_zona'] })
   const pending = crear.isPending || editar.isPending
@@ -108,10 +114,10 @@ function Abierto({ onClose, dispositivo, onCreado }: { onClose: () => void; disp
     const limites = aLimites(v)
     try {
       if (dispositivo) {
-        await editar.mutateAsync({ id: dispositivo.id_dispositivo, body: { nombre: v.nombre, id_rack: v.id_rack || null, activo: v.activo, limites } })
+        await editar.mutateAsync({ id: dispositivo.id_dispositivo, body: { nombre: v.nombre, id_rack: v.id_rack || null, id_nivel: v.id_nivel || null, activo: v.activo, limites } })
         toast.success('Dispositivo actualizado')
       } else {
-        const d = await crear.mutateAsync({ id_almacen: v.id_almacen, id_zona: v.id_zona, id_rack: v.id_rack || null, nombre: v.nombre, limites })
+        const d = await crear.mutateAsync({ id_almacen: v.id_almacen, id_zona: v.id_zona, id_rack: v.id_rack || null, id_nivel: v.id_nivel || null, nombre: v.nombre, limites })
         onCreado?.(d)
       }
       onClose()
@@ -158,8 +164,9 @@ function Abierto({ onClose, dispositivo, onCreado }: { onClose: () => void; disp
           <Field label="Zona" error={err.id_zona?.message} required hint={editando ? 'No se puede cambiar.' : undefined}>
             <ZonaSelect idAlmacen={idAlmacen || undefined} disabled={editando} {...register('id_zona', { onChange: () => setValue('id_rack', '') })} />
           </Field>
+          <Field label="Nivel del sensor"><select {...register('id_nivel')} disabled={!selectedRack}><option value="">Sin nivel asignado</option>{levels.data?.map(n => <option key={n.id_nivel} value={n.id_nivel}>Nivel {n.numero}</option>)}</select></Field>
           <Field label="Rack" hint="Opcional. Si no fijas la temperatura interna, se usa el rango de este rack.">
-            <RackSelect idZona={idZona || undefined} placeholder="Sin rack" {...register('id_rack')} />
+            <RackSelect idZona={idZona || undefined} placeholder="Sin rack" {...register('id_rack', { onChange: () => setValue('id_nivel', '') })} />
           </Field>
           {editando && <Checkbox label="Activo" description="Un dispositivo inactivo no envía datos (se descartan sus mensajes)." {...register('activo')} />}
         </div>

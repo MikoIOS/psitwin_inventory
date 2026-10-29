@@ -30,6 +30,7 @@ export function useAlmacenes() {
     queryKey: queryKeys.almacenes.byEmpresa(idEmpresa ?? ''),
     queryFn: () => almacenesApi.listByEmpresa(requireIdEmpresa(idEmpresa)),
     enabled: !!idEmpresa,
+    refetchInterval: 10000,
   })
 }
 

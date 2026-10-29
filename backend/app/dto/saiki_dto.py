@@ -28,6 +28,12 @@ class SaikiAskRequest(BaseModel):
     horizonte_dias: Literal[1, 7, 30, 90] = 7
     id_inventario: str | None = None
     id_producto: str | None = None
+    id_almacen: str | None = Field(default=None, min_length=1)
+    id_zona: str | None = None
+    id_rack: str | None = None
+    id_nivel: str | None = None
+    id_dispositivo: str | None = Field(default=None, min_length=1)
+    sensor_horas: int = Field(default=24, ge=1, le=168)
     page: int = Field(default=1, ge=1, description="Página del detalle de inventario.")
     page_size: int = Field(default=25, ge=1, le=100)
     context: dict[str, Any] = Field(

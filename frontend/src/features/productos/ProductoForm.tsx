@@ -19,6 +19,8 @@ import { ApiErrorAlert, RackCascada, useInlineApiError } from '@/features/invent
 
 const schema = z
   .object({
+    unidad: z.enum(['kg', 'unidad']),
+    activo: z.boolean(),
     nombre: texto({ max: 150 }),
     categoria: z.string().min(1, 'Selecciona una categoría'),
     familia: z.string().min(1, 'Selecciona una familia'),
@@ -68,6 +70,8 @@ export interface ProductoFormProps {
 export function ProductoForm({ producto, onSuccess, onCancel }: ProductoFormProps) {
   const p = producto
   const defaults: In = {
+    unidad: p?.unidad ?? 'unidad',
+    activo: p?.activo ?? true,
     nombre: p?.nombre ?? '',
     categoria: p?.categoria ?? '',
     familia: p?.familia ?? '',
@@ -89,7 +93,7 @@ export function ProductoForm({ producto, onSuccess, onCancel }: ProductoFormProp
   const form = useForm<In, unknown, Out>({ resolver: zodResolver(schema), defaultValues: defaults })
   const { register, handleSubmit, setValue, formState, control } = form
   const err = formState.errors
-  const [refrigera, tipo, familia, categoria] = useWatch({ control, name: ['requiere_refrigeracion', 'tipo', 'familia', 'categoria'] })
+  const [refrigera, tipo, familia, categoria, unit] = useWatch({ control, name: ['requiere_refrigeracion', 'tipo', 'familia', 'categoria', 'unidad'] })
   // Los valores actuales fuera del catálogo (productos antiguos) se conservan como opción.
   const conActual = (lista: string[], actual: string) => [...new Set([...lista, ...(actual ? [actual] : [])])].map((v) => ({ value: v, label: v }))
   const submit = handleSubmit(async (values) => {
@@ -98,7 +102,7 @@ export function ProductoForm({ producto, onSuccess, onCancel }: ProductoFormProp
       const guardado = producto
         ? await actualizar.mutateAsync({ id: producto.id_producto, body: values })
         : await crear.mutateAsync({ ...values, stock: 0 })
-      toast.success(producto ? 'Producto actualizado' : 'Producto creado')
+      toast.success(producto ? 'Producto actualizado' : 'Producto disponible en el catálogo; configura ahora su oferta')
       onSuccess?.(guardado)
     } catch (e) {
       apiError.handle(e, { form, titulo: producto ? 'No se pudo actualizar el producto' : 'No se pudo crear el producto' })
@@ -110,6 +114,8 @@ export function ProductoForm({ producto, onSuccess, onCancel }: ProductoFormProp
       <ApiErrorAlert error={apiError.error} />
 
       <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Unidad de comercialización" required><Select disabled={!!p} options={[{ value: 'kg', label: 'Kilogramo (kg)' }, { value: 'unidad', label: 'Unidad indivisible' }]} {...register('unidad', { onChange: e => { if (e.target.value === 'kg') setValue('peso', '1') } })} /></Field>
+        <Checkbox label="Producto activo" {...register('activo')} />
         <Field label="Nombre" error={err.nombre?.message} required className="sm:col-span-2">
           <Input placeholder="Arroz extra 5 kg" {...register('nombre')} />
         </Field>
@@ -141,8 +147,8 @@ export function ProductoForm({ producto, onSuccess, onCancel }: ProductoFormProp
       <fieldset className="rounded-md border border-border p-4">
         <legend className="label-stencil px-1">Características y abastecimiento</legend>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Peso" error={err.peso?.message} required hint="Por unidad. Con él se calcula la carga de los racks.">
-            <Input type="number" inputMode="decimal" step="any" min={0} suffix="kg" placeholder="1.0" {...register('peso')} />
+          <Field label="Peso" error={err.peso?.message} required hint={unit === 'kg' ? 'Se comercializa por kilogramo; el factor de carga es 1.' : 'Por unidad. Con él se calcula la carga de los racks.'}>
+            <Input type="number" inputMode="decimal" step="any" min={0} suffix="kg" placeholder="1.0" readOnly={unit === 'kg'} {...register('peso')} />
           </Field>
           {/* El backend guarda este dato en el campo `volumen`. */}
           <Field label="Cantidad" error={err.volumen?.message} hint="Opcional. Unidades por empaque.">

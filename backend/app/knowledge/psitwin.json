@@ -1,0 +1,199 @@
+[
+  {
+    "id": "empresa",
+    "keywords": [
+      "empresa",
+      "registro",
+      "registrar",
+      "perfil",
+      "cuenta"
+    ],
+    "route": "/perfil",
+    "roles": [
+      "EMPRESA"
+    ],
+    "source": "src/features/auth/RegistroPage.tsx; src/features/perfil/PerfilPage.tsx",
+    "answer": "Para registrar una empresa, completa sus datos, el nombre del CEO, RUC, sector, telefono, Gmail y ambas contrasenas de PsiTwin. Pulsa Registrar empresa y abre el enlace de verificacion que llega a tu correo para activar la cuenta. Despues inicia sesion con Gmail y contrasena de PsiTwin. No necesitas Google OAuth. En Perfil puedes editar los datos y cambiar tu contrasena."
+  },
+  {
+    "id": "productos",
+    "keywords": [
+      "producto",
+      "catalogo"
+    ],
+    "route": "/productos",
+    "roles": [
+      "EMPRESA",
+      "OPERARIO",
+      "PROVEEDOR"
+    ],
+    "source": "src/features/productos/ProductosPage.tsx",
+    "answer": "Los productos se crean desde la cuenta de PROVEEDOR: abre Productos, pulsa Nuevo producto, completa el formulario y guarda. La empresa y los operarios consultan el catálogo, pero no tienen el botón para crear productos. Si eres la empresa, registra o contacta al proveedor desde Proveedores; él debe ingresar con sus credenciales y registrar sus productos. Registrar un producto no añade stock automáticamente: las existencias se gestionan en Inventario y Recepciones."
+  },
+  {
+    "id": "almacenes",
+    "keywords": [
+      "almacen"
+    ],
+    "route": "/",
+    "roles": [
+      "EMPRESA"
+    ],
+    "source": "src/features/almacenes/InicioPage.tsx; src/features/almacenes/AlmacenForm.tsx",
+    "answer": "Como empresa, entra a Inicio (Almacenes) y pulsa Nuevo almacén. Completa el nombre, tipo, área, aforo, ubicación y demás campos obligatorios del formulario; pulsa Crear almacén. Abre su tarjeta para ver y administrar sus zonas. Los operarios trabajan en el almacén que les asigna su empresa."
+  },
+  {
+    "id": "zonas",
+    "keywords": [
+      "zona"
+    ],
+    "route": "/",
+    "roles": [
+      "EMPRESA"
+    ],
+    "source": "src/features/almacenes/AlmacenDetallePage.tsx; src/features/almacenes/ZonaForm.tsx",
+    "answer": "Desde Inicio, abre un almacén y pulsa Nueva zona. Completa nombre, tipo de zona, refrigeración y niveles (cantidad de racks admitida) según el formulario. Guarda y abre Ver racks para consultar esa zona. La creación y edición corresponden a la empresa."
+  },
+  {
+    "id": "racks",
+    "keywords": [
+      "rack",
+      "estante"
+    ],
+    "route": "/",
+    "roles": [
+      "EMPRESA"
+    ],
+    "source": "src/features/almacenes/ZonaDetallePage.tsx; src/features/almacenes/RackForm.tsx",
+    "answer": "Abre Inicio, un almacén y su zona; pulsa Nuevo rack. Indica código, nivel, carga máxima y temperaturas cuando correspondan, y guarda. La carga máxima no se modifica después de crear el rack. Solo los racks Libres reciben mercadería; revisa el estado en la ficha del rack."
+  },
+  {
+    "id": "inventario",
+    "keywords": [
+      "inventario",
+      "stock",
+      "existencia"
+    ],
+    "route": "/inventario",
+    "roles": [
+      "EMPRESA",
+      "OPERARIO"
+    ],
+    "source": "src/features/inventario/InventarioPage.tsx; src/features/inventario/InventarioForm.tsx",
+    "answer": "En Inventario consulta y filtra las existencias por producto, almacén y estado de stock. Si tu rol muestra Nuevo inventario, abre ese formulario, selecciona producto y rack e indica los niveles de stock solicitados. El inventario agrupa ubicaciones y productos; crear productos en el catálogo no crea existencias. Las entradas se registran mediante Recepciones y las salidas en Movimientos."
+  },
+  {
+    "id": "operarios",
+    "keywords": [
+      "operario",
+      "personal",
+      "empleado"
+    ],
+    "route": "/operarios",
+    "roles": [
+      "EMPRESA"
+    ],
+    "source": "src/features/operarios/OperariosPage.tsx",
+    "answer": "Como empresa, entra a Operarios y pulsa Registrar operario. Completa los datos del personal, asigna un almacén, cargo y turno y guarda. La pantalla permite editar, activar o desactivar operarios y dar acceso o restablecer su contraseña. Cada operario solo trabaja con la información de su almacén asignado."
+  },
+  {
+    "id": "pedidos",
+    "keywords": [
+      "pedido",
+      "orden",
+      "reposicion",
+      "recepcion",
+      "proveedor"
+    ],
+    "route": "/ordenes",
+    "roles": [
+      "EMPRESA",
+      "OPERARIO",
+      "PROVEEDOR"
+    ],
+    "source": "src/features/ordenes/OrdenesPage.tsx; src/features/recepciones/RecepcionesPage.tsx",
+    "answer": "La sección Solicitudes de reposición permite tramitar la reposición según el rol. Los operarios solicitan, la empresa revisa y valida, y el proveedor atiende las órdenes que le envían. Abre una orden para ver las acciones permitidas por su estado. El proveedor registra su despacho y el personal autorizado registra lo recibido en Recepciones. No hay un módulo independiente de ventas o pagos en esta interfaz."
+  },
+  {
+    "id": "movimientos",
+    "keywords": [
+      "movimiento",
+      "salida",
+      "entrada"
+    ],
+    "route": "/movimientos",
+    "roles": [
+      "EMPRESA",
+      "OPERARIO"
+    ],
+    "source": "src/features/movimientos/MovimientosPage.tsx",
+    "answer": "En Movimientos consulta el historial con filtros de tipo, motivo, operario y producto. Usa Registrar salida si tu rol lo permite y completa la ubicación, cantidad y motivo. Las entradas de mercadería proceden del flujo de Recepciones. El stock debe corresponder a movimientos y ubicaciones reales."
+  },
+  {
+    "id": "sensores",
+    "keywords": [
+      "sensor",
+      "iot",
+      "alerta",
+      "temperatura",
+      "humedad",
+      "monitoreo"
+    ],
+    "route": "/monitoreo",
+    "roles": [
+      "EMPRESA",
+      "OPERARIO"
+    ],
+    "source": "src/features/monitoreo/RackMonitor.tsx; src/features/monitoreo/HistorialSensor.tsx; src/features/monitoreo/DispositivoDetallePage.tsx",
+    "answer": "En Sensores → Monitoreo, selecciona almacén, zona y rack en Monitoreo por rack. El selector muestra los tipos comunicados por los dispositivos; un rack sin dispositivos dice Sin sensores. Pulsa el tipo y, si hay varios dispositivos, elige uno. Revisa conexión, fecha de lectura, medición y umbrales. El Historial permite última hora, 24 horas, 7 días, 30 días o un rango personalizado, con gráfico y tabla paginados. Los datos ausentes no indican normalidad. Las tarjetas inferiores conservan acceso al detalle, edición, token y alertas del dispositivo. Una alerta no confirma daño físico. En Saiki, Explora tus sensores permite elegir Equipo, Medición y Periodo (1, 6, 24 horas o 7 días). Pulsa Saiki, explícame este equipo para interpretar la medición seleccionada, sus umbrales y los incidentes del periodo. El equipo permanece como contexto para preguntas posteriores; puedes quitarlo en Contexto de la consulta. Para conversar por voz, pulsa Iniciar conversación por voz y permite el micrófono. Al terminar de hablar se envía la grabación tras una pausa; también puedes pulsar Enviar grabación. Saiki responde y vuelve a escucharte. Puedes pausar, reanudar o salir."
+  },
+  {
+    "id": "pronosticos",
+    "keywords": [
+      "pronostico",
+      "prediccion",
+      "demanda",
+      "analisis",
+      "autogluon"
+    ],
+    "route": "/analisis",
+    "roles": [
+      "EMPRESA"
+    ],
+    "source": "src/features/analisis/AnalisisPage.tsx; app/services/analisis_service.py",
+    "answer": "Como empresa abre Análisis, selecciona almacén y producto, cambia a la vista de predicción y elige 1, 7, 30 o 90 días en Días a pronosticar. AutoGluon calcula la demanda cuando hay un modelo e historial válidos. La demanda prevista no es el stock real. Si faltan datos o el modelo no está disponible, la plataforma debe indicarlo; no se inventan pronósticos."
+  },
+  {
+    "id": "voz_saiki",
+    "keywords": [
+      "microfono",
+      "voz de saiki",
+      "conversacion por voz",
+      "transcripcion",
+      "reconocimiento",
+      "freetts",
+      "jorge"
+    ],
+    "route": "/saiki",
+    "roles": [
+      "EMPRESA"
+    ],
+    "source": "frontend/src/features/saiki/ttsProvider.ts; frontend/src/features/saiki/SaikiPresence.tsx",
+    "answer": "En Saiki, pulsa Iniciar conversación por voz y permite el micrófono en HTTPS o localhost. El reconocimiento del navegador puede enviar audio a su proveedor y requiere compatibilidad y conexión. Se envían las transcripciones definitivas automáticamente; las preguntas y respuestas quedan escritas en el chat. También puedes escribir. Mientras Saiki habla, el micrófono se detiene para evitar ecos; al terminar vuelve a escuchar. Usa Interrumpir y preguntar, Pausar, Reanudar o Salir de la voz. La mini ventana conserva la sesión al navegar y permite minimizar, ampliar o cerrar la voz. La voz está fijada en Jorge (México), con velocidad natural; no hay panel de edición de voz ni botón Enviar grabación. Jorge debe estar disponible entre las voces del navegador. Si falta, Saiki lo indica y conserva la respuesta escrita; no usa otra voz como sustituta ni afirma estar utilizando FreeTTS. No se guardan grabaciones del micrófono."
+  },
+  {
+    "id": "capacidades",
+    "keywords": [
+      "funcion",
+      "plataforma",
+      "psitwin",
+      "limitacion"
+    ],
+    "route": "/saiki",
+    "roles": [
+      "EMPRESA"
+    ],
+    "source": "src/routes.tsx; src/components/layout/navigation.ts",
+    "answer": "PsiTwin administra empresas, almacenes, zonas, racks, catálogo de proveedores, inventario, personal, reposición, recepciones, movimientos, sensores y análisis de demanda. Saiki explica su uso y consulta información autorizada; sus herramientas son de lectura y no crean ni eliminan registros por conversación. Los pronósticos usan AutoGluon y las explicaciones complejas pueden usar Ollama/Qwen. No hay integraciones de pagos ni facturación implementadas en estas pantallas."
+  }
+]

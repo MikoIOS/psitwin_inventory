@@ -59,7 +59,7 @@ export function DetallesRecepcionTable({ detalles, nombreProducto, ubicacion, pu
                 </span>
               ),
           },
-          { id: 'ubicacion', header: 'Rack', cell: (d) => ubicacion(d.id_inventario) },
+          { id: 'ubicacion', header: 'Rack', cell: (d) => ubicacion(d.id_detalle_inventario ?? d.id_inventario) },
           {
             id: 'lote',
             header: 'Lote',
@@ -94,7 +94,7 @@ export function DetallesRecepcionTable({ detalles, nombreProducto, ubicacion, pu
         open={!!aResolver}
         onClose={() => setAResolver(null)}
         title="Resolver evaluación"
-        description={aResolver ? `${nombreProducto(aResolver.id_detalle_reposicion)} · ${formatNumero(aResolver.cantidad_recibida)} u. recibidas · ${ubicacion(aResolver.id_inventario)}` : undefined}
+        description={aResolver ? `${nombreProducto(aResolver.id_detalle_reposicion)} · ${formatNumero(aResolver.cantidad_recibida)} u. recibidas · ${ubicacion(aResolver.id_detalle_inventario ?? aResolver.id_inventario)}` : undefined}
       >
         {aResolver && (
           <ResolverForm key={aResolver.id_detalle_recepcion} detalle={aResolver} onClose={() => setAResolver(null)} />

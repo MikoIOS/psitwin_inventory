@@ -33,8 +33,9 @@ def test_header_and_distribution_http(app,db):
         assert again.json()["id_inventario"]==identifier
         for rack,stock in (("r1",10),("r2",5)):
             result=await request(app,"POST","/detalles-inventario",json={"id_inventario":identifier,
-                "id_producto":"p","id_rack":rack,"stock_actual":stock,"stock_minimo":1,"stock_maximo":40})
+                "id_producto":"p","id_rack":rack,"stock_actual":0,"stock_minimo":0,"stock_maximo":0})
             assert result.status_code==201,result.text
+            db["detalles_inventario"].rows[-1]["stock_actual"] = stock  # existing-stock fixture; HTTP creates empty locations
         totals=await request(app,"GET",f"/inventarios/{identifier}/productos")
         assert totals.json()[0]["stock_actual"]==15
         assert "stock_minimo" not in totals.json()[0]
@@ -51,7 +52,7 @@ def test_forecast_http_horizons_and_dates(app,db,horizon):
         assert result.status_code==200,result.text
         payload=result.json()
         assert payload["horizonte_dias"]==horizon
-        expected="HISTORIAL_INSUFICIENTE" if horizon<=7 else "MODELO_NO_DISPONIBLE"
+        expected="HISTORIAL_INSUFICIENTE"  # Every horizon requires observed movement history.
         assert payload["estado"]==expected
         assert payload["demanda_total_estimada"] is None and payload["predicciones_diarias"]==[]
     run(scenario())

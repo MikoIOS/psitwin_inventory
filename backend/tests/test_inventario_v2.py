@@ -223,7 +223,7 @@ def test_lock_conflict_does_not_expire_writer(db):
     run(scenario())
 
 def prepare_order(db,quantity=10):
-    db["ordenes_reposicion"].rows=[{"id_orden_reposicion":"order","id_empresa":"e","id_almacen":"a","estado":"ENVIADA","id_proveedor":"supplier"}]
+    db["ordenes_reposicion"].rows=[{"id_orden_reposicion":"order","id_empresa":"e","id_almacen":"a","estado":"ENVIADA","id_proveedor":"supplier", "fecha_orden":datetime.now(timezone.utc), "despacho":{"lineas":[{"id_detalle_reposicion":"line","cantidad":quantity}]}}]
     db["detalles_reposicion"].rows=[{"id_detalle_reposicion":"line","id_orden_reposicion":"order","id_producto":"p","cantidad_solicitada":quantity}]
 
 def test_receipt_creates_location_once_and_preserves_ledger(db):
@@ -231,7 +231,7 @@ def test_receipt_creates_location_once_and_preserves_ledger(db):
         header=await InventarioRepository().garantizar("a")
         prepare_order(db)
         request=RecepcionMercaderiaCreate(id_orden_reposicion="order",detalles=[{
-            "id_inventario":header["id_inventario"],"id_rack":"r1","stock_minimo":2,"stock_maximo":30,
+            "id_inventario":header["id_inventario"],"id_rack":"r1","stock_minimo":0,"stock_maximo":0,
             "id_detalle_reposicion":"line","cantidad_recibida":10,"lote":"L1"}])
         receipt=await RecepcionMercaderiaService().crear(request,user())
         assert len(db["inventarios"].rows)==1
@@ -249,7 +249,7 @@ def test_receipt_rejects_cumulative_overdelivery_before_writes(db):
         header=await InventarioRepository().garantizar("a")
         prepare_order(db,5)
         request=RecepcionMercaderiaCreate(id_orden_reposicion="order",detalles=[
-            {"id_inventario":header["id_inventario"],"id_rack":rack,"stock_maximo":30,"id_detalle_reposicion":"line","cantidad_recibida":3}
+            {"id_inventario":header["id_inventario"],"id_rack":rack,"stock_maximo":0,"id_detalle_reposicion":"line","cantidad_recibida":3}
             for rack in ("r1","r2")])
         with pytest.raises(HTTPException) as caught: await RecepcionMercaderiaService().crear(request,user())
         assert caught.value.status_code==409
@@ -262,7 +262,7 @@ def test_evaluation_resolution_location_and_quantities(db,monkeypatch):
         prepare_order(db)
         receipt=await RecepcionMercaderiaService().crear(RecepcionMercaderiaCreate(
             id_orden_reposicion="order",detalles=[{"id_inventario":header["id_inventario"],"id_rack":"r1",
-            "stock_maximo":30,"id_detalle_reposicion":"line","cantidad_recibida":10,
+            "stock_maximo":0,"id_detalle_reposicion":"line","cantidad_recibida":10,
             "estado_recepcion":"EN_EVALUACION","comentario_recepcion":"Inspección"}]),user())
         service=DetalleRecepcionService()
         async def notify(*args): return {"status":"OMITIDO"}
@@ -352,7 +352,7 @@ def test_receipt_movement_failure_is_recoverable_without_false_acceptance(db):
         db["movimientos"].fail_insert=True
         with pytest.raises(RuntimeError):
             await RecepcionMercaderiaService().crear(RecepcionMercaderiaCreate(id_orden_reposicion="order",
-                detalles=[{"id_inventario":header["id_inventario"],"id_rack":"r1","stock_maximo":30,
+                detalles=[{"id_inventario":header["id_inventario"],"id_rack":"r1","stock_maximo":0,
                 "id_detalle_reposicion":"line","cantidad_recibida":10}]),user())
         assert db["detalles_inventario"].rows[0]["stock_actual"]==0
         pending=db["detalles_recepcion"].rows[0]

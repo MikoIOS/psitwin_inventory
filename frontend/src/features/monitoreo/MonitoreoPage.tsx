@@ -1,3 +1,4 @@
+import { WarehouseMapSelector } from '@/features/almacenes/WarehouseMap'
 /**
  * Monitoreo (EMPRESA y OPERARIO; el operario ve solo su almacén): tarjetas por dispositivo agrupadas por zona, con
  * valores en vivo (WebSocket) y color según estado (normal / fuera de rango / alerta / sin datos).
@@ -12,6 +13,7 @@ import { cn } from '@/lib/cn'
 import { formatFechaHora } from '@/lib/format'
 import { paths } from '@/paths'
 import { DispositivoFormModal, TokenModal } from './DispositivoForm'
+import { RackMonitor } from './RackMonitor'
 import { ESTADO_SENSOR, estadoDispositivo, etiquetaAlerta, ms, useAhora } from './monitoreoUtils'
 import { BadgeEstadoSensor, IndicadorConexion, useDispositivosVivos, ValoresVivos } from './ValoresVivos'
 
@@ -45,6 +47,8 @@ export default function MonitoreoPage() {
           : {})}
       />
 
+      <RackMonitor />
+      <WarehouseMapSelector />
       {q.isLoading ? (
         <LoadingBlock label="Cargando dispositivos…" />
       ) : q.error ? (

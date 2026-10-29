@@ -16,7 +16,7 @@ QUESTIONS = [
     ("Hola Saiki.", None),
     ("¿Cómo está mi inventario?", "get_warehouse_status"),
     ("¿Cuántos productos tengo?", "get_product"),
-    ("¿Tengo almacenes registrados?", "get_warehouse_status"),
+    ("¿Tengo almacenes registrados?", "get_locations"),
     ("¿Cuánto stock tengo?", "get_warehouse_status"),
     ("¿Tengo alertas activas?", "get_active_alerts"),
     ("¿Qué movimientos recientes tengo?", "get_recent_movements"),
@@ -54,7 +54,7 @@ def quality_app(http_app, monkeypatch):
         return SimpleNamespace(model_dump=lambda **kwargs: {"id_inventario": "A-inventory", "id_detalle_inventario": "A-inventory", "id_producto": "A-product", "stock_actual": 3, "riesgo": {"nivel": "CRITICO"}, "cobertura": {"dias": 1}, "lead_time_dias": 2})
     mock_forecast(monkeypatch)
     monkeypatch.setattr(saiki_controller.service.tools.risk_service, "evaluar", risk)
-    monkeypatch.setattr(saiki_controller.service, "_call_ollama_chat", lambda *args: pytest.fail("Clear question must not require Ollama"))
+    monkeypatch.setattr(saiki_controller.service, "_call_ollama_chat", lambda messages, *args: {'message': {'content': json.loads(messages[-1]['content'])['explicacion_verificada']}})
     return app, data
 
 
@@ -77,13 +77,13 @@ def test_natural_answers_with_correct_sources_and_measured_latency(quality_app, 
     payload = response.json()
     answer = payload["answer"]
     assert answer and not any(heading in answer for heading in ("DATO REAL", "INTERPRETACIÓN DE SAIKI", "RECOMENDACIÓN"))
-    assert payload["source"] in {"backend", "router"}
+    assert payload["source"] == 'ollama' if expected in {'get_forecast', 'get_inventory_risk'} else payload["source"] in {'backend', 'router'}
     assert "B-product" not in json.dumps(payload)
     if expected:
         assert expected in [item["tool"] for item in timings]
     else:
         assert not timings
-        assert answer == "¡Hola, soy Saiki!"
+        assert 'Soy Saiki' in answer and 'PsiTwin' in answer
     if expected == "get_forecast":
         forecast = payload["data"]["get_forecast"]
         assert len(forecast["predicciones_diarias"]) == 7

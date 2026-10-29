@@ -174,7 +174,7 @@ export default function ProductosPage() {
         error={q.error}
         onRetry={() => void q.refetch()}
         rowKey={(p) => p.id_producto}
-        onRowClick={(p) => navigate(paths.producto(p.id_producto))}
+        onRowClick={(p) => navigate(`${paths.abastecimiento}?producto=${encodeURIComponent(p.id_producto)}`)}
         empty={
           hayFiltros ? (
             <EmptyState icon="search" title="Sin resultados" description="Ningún producto coincide con los filtros." />
@@ -230,7 +230,7 @@ export default function ProductosPage() {
           onCancel={() => setCreando(false)}
           onSuccess={(p) => {
             setCreando(false)
-            navigate(paths.producto(p.id_producto))
+            navigate(`${paths.abastecimiento}?producto=${encodeURIComponent(p.id_producto)}`)
           }}
         />
       </Modal>

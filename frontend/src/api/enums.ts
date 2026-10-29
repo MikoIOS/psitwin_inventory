@@ -32,8 +32,9 @@ export const ESTADO_RACK_LABEL: Record<EstadoRack, string> = {
   MANTENIMIENTO: 'No disponible',
   ACTIVO: 'Activo',
   INACTIVO: 'Inactivo',
+  ARCHIVADO: 'Archivado',
 }
-export const ESTADOS_RACK_EDITABLES = ['DISPONIBLE', 'LLENO', 'MANTENIMIENTO'] as const satisfies readonly EstadoRackEditable[]
+export const ESTADOS_RACK_EDITABLES = ['DISPONIBLE', 'LLENO', 'MANTENIMIENTO', 'INACTIVO', 'ARCHIVADO'] as const satisfies readonly EstadoRackEditable[]
 export const ESTADO_RACK_OPCIONES = opciones(ESTADO_RACK_LABEL, ESTADOS_RACK_EDITABLES)
 
 /** Etiqueta de un valor libre: usa el mapa si lo conoce; si no, muestra el valor tal cual. */

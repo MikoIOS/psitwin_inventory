@@ -17,6 +17,8 @@ from app.repositories.alerta_repository import (
 
 
 class AlertaService:
+    async def listar_activas_por_empresa(self, id_empresa):
+        return await self.repository.listar_activas_por_empresa(id_empresa)
 
     def __init__(self):
         self.repository = AlertaRepository()

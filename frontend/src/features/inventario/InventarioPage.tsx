@@ -1,11 +1,13 @@
+import { ExportarInventario } from './ExportarInventario'
+import { useSaikiSessionOptional } from '@/features/saiki/SaikiSession'
 /**
  * Inventario de la empresa: stock real por producto y rack (Inventario.stock_actual).
  * Pestañas con los endpoints específicos del backend: todos / stock-bajo / sin-stock / sobre-stock.
- * El backend no filtra por empresa: se acota con useUbicaciones().perteneceAEmpresa(id_rack).
+ * El backend aplica el alcance autenticado; la UI además relaciona cada detalle con su rack.
  *
  * La pestaña se refleja en la URL (`/inventario?estado=stock-bajo|sin-stock|sobre-stock`) para poder enlazarla.
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import {
   useInventarios,
@@ -38,6 +40,13 @@ const TONO_CONTADOR: Record<PestanaId, string> = {
   'sobre-stock': 'bg-info-soft text-info',
 }
 
+const TONO_BOTON: Record<PestanaId, string> = {
+  todos: 'border-slate-400/20 bg-slate-400/10 text-slate-200 hover:bg-slate-400/20',
+  'stock-bajo': 'border-amber-300/25 bg-amber-300/10 text-amber-200 hover:bg-amber-300/20',
+  'sin-stock': 'border-rose-300/25 bg-rose-300/10 text-rose-200 hover:bg-rose-300/20',
+  'sobre-stock': 'border-sky-300/25 bg-sky-300/10 text-sky-200 hover:bg-sky-300/20',
+}
+
 const normalizar = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim()
 
 export default function InventarioPage() {
@@ -47,10 +56,12 @@ export default function InventarioPage() {
   const [busqueda, setBusqueda] = useState('')
   const [idAlmacen, setIdAlmacen] = useState('')
   const [creando, setCreando] = useState(false)
+  const setInventoryContext = useSaikiSessionOptional()?.setInventoryContext
+  useEffect(() => { setInventoryContext?.({ ...(idAlmacen ? { id_almacen: idAlmacen } : {}), busqueda, estado: pestana }) }, [idAlmacen, busqueda, pestana, setInventoryContext])
 
   const ub = useUbicaciones()
   const productos = useProductos()
-  const { esOperario } = useRol()
+  const { esOperario, esEmpresa } = useRol()
   const consultas = {
     todos: useInventarios(),
     'stock-bajo': useInventariosStockBajo(),
@@ -95,10 +106,10 @@ export default function InventarioPage() {
         eyebrow="Existencias"
         description={
           esOperario
-            ? 'Stock real de cada producto por rack. El stock sube con las recepciones y baja con las salidas; aquí defines sus límites.'
-            : 'Stock real de cada producto por rack (solo lectura). Abre el historial de un inventario para ver quién lo creó o cambió.'
+            ? 'Stock real por ubicación. Las recepciones aceptadas incrementan el stock; la empresa configura sus límites.'
+            : 'Stock real por ubicación. Configura los límites y consulta el historial de movimientos.'
         }
-        {...(esOperario
+        {...((esOperario || esEmpresa)
           ? {
               actions: (
                 <Button icon="plus" onClick={() => setCreando(true)}>
@@ -109,6 +120,7 @@ export default function InventarioPage() {
           : {})}
       />
 
+      <div className="mb-4"><ExportarInventario filtros={{ ...(idAlmacen ? { id_almacen: idAlmacen } : {}), busqueda, estado: pestana }} /></div>
       <div className="mb-4 flex flex-col gap-4">
         <div role="group" aria-label="Filtrar por estado de stock" className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
           {PESTANAS.map((p) => {
@@ -121,8 +133,9 @@ export default function InventarioPage() {
                 aria-pressed={activa}
                 onClick={() => cambiarPestana(p.id)}
                 className={cn(
-                  'inline-flex h-10 shrink-0 items-center gap-2 rounded-[var(--radius-ui)] border px-3.5 text-sm font-medium transition-colors',
-                  activa ? 'border-accent bg-accent-soft text-fg' : 'border-border bg-surface text-fg-muted hover:bg-surface-2 hover:text-fg',
+                  'inline-flex h-10 shrink-0 items-center gap-2 rounded-[var(--radius-ui)] border px-3.5 text-sm font-medium transition-all duration-200',
+                  TONO_BOTON[p.id],
+                  activa && 'ring-1 ring-current ring-inset shadow-sm',
                 )}
               >
                 {p.label}
@@ -163,7 +176,7 @@ export default function InventarioPage() {
               icon="layers"
               title="Aún no hay inventarios"
               description="Un inventario vincula un producto con un rack y define su stock actual, mínimo y máximo. Los crea el operario del almacén."
-              {...(esOperario
+              {...((esOperario || esEmpresa)
                 ? {
                     action: (
                       <Button icon="plus" onClick={() => setCreando(true)}>

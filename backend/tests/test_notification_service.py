@@ -1,7 +1,7 @@
 import asyncio
 import unittest
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from app.config.settings import settings
 from app.services.email_verification_service import EmailVerificationService
@@ -310,8 +310,24 @@ class EmailVerificationServiceTests(unittest.TestCase):
         code = self.sent[0][0][2].splitlines()[4]
         success = asyncio.run(service.verify_code("empresa", "empresa-1", "dueno@empresa.test", code))
         self.assertTrue(success["verified"])
+        self.assertEqual(len(self.sent), 2)
+        self.assertIn('validado correctamente', self.sent[1][0][1])
         second = asyncio.run(service.verify_code("empresa", "empresa-1", "dueno@empresa.test", code))
         self.assertFalse(second["verified"])
+        self.assertEqual(len(self.sent), 2)
+
+    def test_confirmation_failure_does_not_undo_verification(self):
+        def sender(*args):
+            if len(self.sent):
+                raise RuntimeError('SMTP unavailable')
+            self.sent.append((args, {}))
+
+        service = EmailVerificationService(lambda: self.database, sender)
+        asyncio.run(service.request_verification('empresa', 'empresa-1', 'dueno@empresa.test'))
+        code = self.sent[0][0][2].splitlines()[4]
+        result = asyncio.run(service.verify_code('empresa', 'empresa-1', 'dueno@empresa.test', code))
+        self.assertTrue(result['verified'])
+        self.assertTrue(result['entity']['correo_verificado'])
 
     def test_naive_mongo_timestamps_keep_cooldown_working(self):
         service = EmailVerificationService(
@@ -407,6 +423,11 @@ class OrderNotificationWiringTests(unittest.TestCase):
             return_value=[{"id_detalle_reposicion": "line-1"}]
         )
         service.notification_service.enviar_orden_proveedor = notificacion
+        transition = AsyncMock(return_value={'id_orden_reposicion': 'order-1', 'estado': 'ENVIADA'})
+        patcher = patch('app.services.abastecimiento_service.AbastecimientoService.transicion', transition)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        service.test_transition = transition
         return service
 
     def test_approval_sends_order_and_notifies_provider_once(self):
@@ -418,10 +439,7 @@ class OrderNotificationWiringTests(unittest.TestCase):
         result = asyncio.run(service.aprobar("order-1"))
 
         self.assertEqual(result["estado"], "ENVIADA")
-        service.repository.cambiar_estado.assert_awaited_once_with(
-            "order-1",
-            "ENVIADA",
-        )
+        service.test_transition.assert_awaited_once_with("order-1", {"PENDIENTE", "APROBADA"}, "ENVIADA", None)
         service.notification_service.enviar_orden_proveedor.assert_awaited_once_with(
             "order-1"
         )
@@ -436,7 +454,7 @@ class OrderNotificationWiringTests(unittest.TestCase):
             result = asyncio.run(service.enviar("order-1"))
 
             self.assertEqual(result["estado"], "ENVIADA")
-            service.repository.cambiar_estado.assert_awaited_once()
+            service.test_transition.assert_awaited_once()
 
 
 class RecommendationDecisionTests(unittest.TestCase):

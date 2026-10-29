@@ -94,6 +94,7 @@ TITULOS = {
     "PUERTA_ABIERTA": "Puerta abierta demasiado tiempo",
     "APERTURAS_EXCESIVAS": "Aperturas de puerta excesivas",
     "SENSOR_SIN_DATOS": "Sensor sin datos",
+    "LECTURA_DESACTUALIZADA": "Lectura desactualizada",
 }
 
 UNIDADES = {
@@ -104,6 +105,7 @@ UNIDADES = {
     "puerta": "s",
     "aperturas_hora": "aperturas/h",
     "conexion": "s",
+    "actualidad": "s",
 }
 
 
@@ -333,6 +335,7 @@ class MonitoreoService:
             else None
         )
 
+        documento['rack_codigo'] = (rack or {}).get('codigo')
         self.dispositivos[documento["id_dispositivo"]] = documento
 
         self.motor.configurar(
@@ -373,6 +376,10 @@ class MonitoreoService:
         if inicio is not None and inicio.tzinfo is None:
             inicio = inicio.replace(tzinfo=timezone.utc)
 
+        if clave[1] == 'actualidad':
+            self.dispositivos[clave[0]]['_lectura_desactualizada_desde'] = inicio or _ahora()
+            self.abiertas[clave] = alerta['id_alerta']
+            return
         self.motor.restaurar(
             clave[0],
             clave[1],
@@ -500,6 +507,10 @@ class MonitoreoService:
         ts = _parsear_ts(data.get("ts")) or llegada
 
         lectura = sanear(data)
+        lectura['id_lectura'] = str(uuid4())
+        dispositivo['ultima_lectura_id'] = lectura['id_lectura']
+        dispositivo['parametros_disponibles'] = sorted(set(dispositivo.get('parametros_disponibles', [])) |
+            {p for p in (*CAMPOS_NUMERICOS, 'puerta') if lectura.get(p) is not None})
 
         self.ultima[id_dispositivo] = {
             "ts": ts,
@@ -507,6 +518,7 @@ class MonitoreoService:
         }
 
         self.ultimo_arribo[id_dispositivo] = llegada
+        await self._manejar_eventos(self._eventos_actualidad(dispositivo, ts, llegada))
 
         self._acumular(
             dispositivo,
@@ -517,7 +529,7 @@ class MonitoreoService:
         await self._manejar_eventos(
             self.motor.procesar(
                 id_dispositivo,
-                lectura
+                lectura if abs((llegada - ts).total_seconds()) <= settings.sensor_max_reading_age_seconds else {}
             )
         )
 
@@ -543,6 +555,21 @@ class MonitoreoService:
 
         return True
 
+
+    def _eventos_actualidad(self, dispositivo, ts, llegada):
+        age = abs((llegada - ts).total_seconds())
+        limit = settings.sensor_max_reading_age_seconds
+        start = dispositivo.get('_lectura_desactualizada_desde')
+        if age > limit and start is None:
+            dispositivo['_lectura_desactualizada_desde'] = llegada
+            return [Evento('ABIERTA', dispositivo['id_dispositivo'], 'LECTURA_DESACTUALIZADA',
+                           'actualidad', age, limit, llegada)]
+        if age <= limit and start is not None:
+            dispositivo.pop('_lectura_desactualizada_desde', None)
+            return [Evento('RESUELTA', dispositivo['id_dispositivo'], 'LECTURA_DESACTUALIZADA',
+                           'actualidad', age, limit, start, fin=llegada,
+                           duracion_s=(llegada - start).total_seconds())]
+        return []
 
     # ============================================================
     # ESCRITURA EN BLOQUE (cada 1 s)
@@ -637,6 +664,12 @@ class MonitoreoService:
         await LecturaRepository.acumular_minutos(minutos)
 
         await DispositivoRepository.actualizar_ultimas_lecturas(ultimas)
+        for device_id in ultimas:
+            device = self.dispositivos.get(device_id)
+            if device:
+                await DispositivoRepository.collection().update_one({'id_dispositivo': device_id},
+                    {'$set': {'parametros_disponibles': device.get('parametros_disponibles', []),
+                              'ultima_lectura_id': device.get('ultima_lectura_id')}})
 
         # a partir de ahora se vigila su conexión
         for id_dispositivo, ts in ultimas.items():
@@ -793,8 +826,10 @@ class MonitoreoService:
             "id_almacen": dispositivo["id_almacen"],
             "id_zona": dispositivo.get("id_zona"),
             "id_rack": dispositivo.get("id_rack"),
+            "codigo_rack": dispositivo.get('rack_codigo'),
             "id_dispositivo": dispositivo["id_dispositivo"],
             "id_inventario": None,
+            "id_lectura": dispositivo.get('ultima_lectura_id'),
             "id_producto": None,
             "tipo_alerta": evento.tipo,
             "nivel_riesgo": (
@@ -807,7 +842,7 @@ class MonitoreoService:
                 f"{dispositivo['nombre']}"
             ),
             "mensaje": (
-                f"{dispositivo['nombre']}: {detalle}, "
+                f"{dispositivo['nombre']} · Rack {dispositivo.get('rack_codigo') or dispositivo.get('id_rack') or 'sin asignar'}: {detalle}, "
                 f"desde {evento.inicio.isoformat(timespec='seconds')}"
             ),
             "parametro": evento.parametro,
@@ -859,6 +894,7 @@ class MonitoreoService:
         llegada = self.ultimo_arribo.get(id_dispositivo)
 
         return {
+            "max_edad_lectura_s": settings.sensor_max_reading_age_seconds,
             "conectado": (
                 llegada is not None
                 and (_ahora() - llegada).total_seconds() <= SIN_DATOS_S

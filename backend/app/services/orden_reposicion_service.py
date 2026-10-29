@@ -44,133 +44,9 @@ class OrdenReposicionService:
     # (None si nace de una recomendación aprobada).
     # ========================================================
 
-    async def crear(
-        self,
-        data: OrdenReposicionCreate,
-        id_operario_solicitante: str | None = None
-    ):
-
-        db = get_database()
-
-        empresa = await db["empresas"].find_one(
-            {
-                "$or": [
-                    {"id_empresa": data.id_empresa},
-                    {"id": data.id_empresa}
-                ]
-            }
-        )
-
-        if not empresa:
-            raise HTTPException(
-                status_code=404,
-                detail="Empresa no encontrada"
-            )
-
-        almacen = await db["almacenes"].find_one(
-            {
-                "$or": [
-                    {"id_almacen": data.id_almacen},
-                    {"id": data.id_almacen}
-                ]
-            }
-        )
-
-        if not almacen:
-            raise HTTPException(
-                status_code=404,
-                detail="Almacén no encontrado"
-            )
-
-        if almacen.get("id_empresa") != data.id_empresa:
-            raise HTTPException(
-                status_code=400,
-                detail="El almacén no pertenece a la empresa"
-            )
-
-        proveedor = (
-            await self.proveedor_repository.obtener_por_id(
-                data.id_proveedor
-            )
-        )
-
-        if not proveedor:
-            raise HTTPException(
-                status_code=404,
-                detail="Proveedor no encontrado"
-            )
-
-        if proveedor["id_empresa"] != data.id_empresa:
-            raise HTTPException(
-                status_code=400,
-                detail="El proveedor no pertenece a la empresa"
-            )
-
-        if proveedor["estado"] != "ACTIVO":
-            raise HTTPException(
-                status_code=400,
-                detail="El proveedor está inactivo"
-            )
-
-        documento = data.model_dump(
-            exclude={"lineas"}
-        )
-
-        documento["origen"] = data.origen.value
-        documento["estado"] = (
-            EstadoOrdenReposicion.PENDIENTE.value
-        )
-        documento["id_operario_solicitante"] = (
-            id_operario_solicitante
-        )
-        documento["comentario_empresa"] = None
-        documento["despacho"] = None
-        documento["fecha_despacho"] = None
-
-        # ----------------------------------------------------
-        # LINEAS INICIALES: validar antes de crear nada
-        # ----------------------------------------------------
-
-        ids_producto = [
-            linea.id_producto
-            for linea in data.lineas
-        ]
-
-        if len(set(ids_producto)) != len(ids_producto):
-            raise HTTPException(
-                status_code=409,
-                detail="Hay productos repetidos en las líneas"
-            )
-
-        for id_producto in ids_producto:
-
-            producto = await db["productos"].find_one(
-                {"id_producto": id_producto}
-            )
-
-            if (
-                not producto
-                or producto.get("id_empresa")
-                != data.id_empresa
-            ):
-                raise HTTPException(
-                    status_code=404,
-                    detail="Producto no encontrado"
-                )
-
-        orden = await self.repository.crear(documento)
-
-        for linea in data.lineas:
-
-            detalle = linea.model_dump()
-
-            detalle["id_orden_reposicion"] = (
-                orden["id_orden_reposicion"]
-            )
-
-            await self.detalle_repository.crear(detalle)
-
-        return orden
+    async def crear(self, data, id_operario_solicitante=None):
+        from app.services.abastecimiento_service import AbastecimientoService
+        return await AbastecimientoService.crear(data, id_operario_solicitante)
 
     async def obtener_todos(self):
         return await self.repository.obtener_todos()
@@ -213,58 +89,20 @@ class OrdenReposicionService:
     # EDITAR (OPERARIO): solo PENDIENTE u OBSERVADA
     # ========================================================
 
-    async def actualizar(
-        self,
-        id_orden: str,
-        data: OrdenReposicionUpdate
-    ):
-
-        orden = await self.obtener_por_id(id_orden)
-
-        if orden["estado"] not in [
-            "PENDIENTE",
-            "OBSERVADA"
-        ]:
-            raise HTTPException(
-                status_code=409,
-                detail="La orden ya no puede modificarse"
-            )
-
-        cambios = data.model_dump(
-            exclude_unset=True
-        )
-
-        if cambios.get("id_proveedor"):
-
-            proveedor = (
-                await self.proveedor_repository.obtener_por_id(
-                    cambios["id_proveedor"]
-                )
-            )
-
-            if (
-                not proveedor
-                or proveedor["id_empresa"] != orden["id_empresa"]
-            ):
-                raise HTTPException(
-                    status_code=404,
-                    detail="Proveedor no encontrado"
-                )
-
-            if proveedor["estado"] != "ACTIVO":
-                raise HTTPException(
-                    status_code=400,
-                    detail="El proveedor está inactivo"
-                )
-
-        else:
-
-            cambios.pop("id_proveedor", None)
-
-        return await self.repository.actualizar(
-            id_orden,
-            cambios
-        )
+    async def actualizar(self, id_orden, data):
+        from app.services.stock_lock import bloqueo_orden
+        async with bloqueo_orden(id_orden):
+            order = await self.obtener_por_id(id_orden)
+            if order['estado'] not in {'PENDIENTE', 'OBSERVADA'}:
+                raise HTTPException(409, 'La solicitud ya no puede modificarse')
+            changes = data.model_dump(exclude_unset=True)
+            if changes.get('id_proveedor') and changes['id_proveedor'] != order['id_proveedor']:
+                if await self.detalle_repository.obtener_por_orden(id_orden):
+                    raise HTTPException(409, 'No se puede cambiar el proveedor de líneas reservadas')
+                provider = await self.proveedor_repository.obtener_por_id(changes['id_proveedor'])
+                if not provider or provider['id_empresa'] != order['id_empresa'] or provider.get('estado') != 'ACTIVO':
+                    raise HTTPException(404, 'Proveedor activo no encontrado')
+            return await self.repository.actualizar(id_orden, changes)
 
     # ========================================================
     # VALIDAR (EMPRESA) -> ENVIADA
@@ -274,51 +112,15 @@ class OrdenReposicionService:
     # El correo es un aviso opcional: NUNCA bloquea.
     # ========================================================
 
-    async def validar(self, id_orden: str):
-
-        orden = await self.obtener_por_id(id_orden)
-
-        if orden["estado"] not in [
-            "PENDIENTE",
-            "APROBADA"
-        ]:
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    "Solo una solicitud PENDIENTE "
-                    "puede validarse"
-                )
-            )
-
-        detalles = await self.detalle_repository.obtener_por_orden(
-            id_orden
-        )
-
-        if not detalles:
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    "No se puede validar una solicitud "
-                    "sin productos"
-                )
-            )
-
-        resultado = await self.repository.cambiar_estado(
-            id_orden,
-            "ENVIADA"
-        )
-
+    async def validar(self, id_orden, user=None):
+        from app.services.abastecimiento_service import AbastecimientoService
+        result = await AbastecimientoService.transicion(id_orden, {'PENDIENTE', 'APROBADA'}, 'ENVIADA', user)
         try:
-            await self.notification_service.enviar_orden_proveedor(
-                id_orden
-            )
-        except Exception as exc:
-            print(
-                "Aviso al proveedor no enviado:",
-                exc
-            )
-
-        return resultado
+            await self.notification_service.enviar_orden_proveedor(id_orden)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).warning('order_notification_failed')
+        return result
 
     # Alias antiguos: se conservan para no romper
     # (recomendaciones usa aprobar).
@@ -333,75 +135,25 @@ class OrdenReposicionService:
     # DEVOLVER CON COMENTARIO (EMPRESA) -> OBSERVADA
     # ========================================================
 
-    async def devolver(
-        self,
-        id_orden: str,
-        comentario: str
-    ):
-
-        orden = await self.obtener_por_id(id_orden)
-
-        if orden["estado"] != "PENDIENTE":
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    "Solo una solicitud PENDIENTE "
-                    "puede devolverse"
-                )
-            )
-
-        return await self.repository.actualizar(
-            id_orden,
-            {
-                "estado": "OBSERVADA",
-                "comentario_empresa": comentario.strip()
-            }
-        )
+    async def devolver(self, id_orden, comentario, user=None):
+        from app.services.abastecimiento_service import AbastecimientoService
+        return await AbastecimientoService.transicion(id_orden, {'PENDIENTE'}, 'OBSERVADA', user, comentario)
 
     # ========================================================
     # REENVIAR (OPERARIO): OBSERVADA -> PENDIENTE
     # ========================================================
 
-    async def reenviar(self, id_orden: str):
-
-        orden = await self.obtener_por_id(id_orden)
-
-        if orden["estado"] != "OBSERVADA":
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    "Solo una solicitud OBSERVADA "
-                    "puede reenviarse"
-                )
-            )
-
-        return await self.repository.cambiar_estado(
-            id_orden,
-            "PENDIENTE"
-        )
+    async def reenviar(self, id_orden, user=None):
+        from app.services.abastecimiento_service import AbastecimientoService
+        return await AbastecimientoService.transicion(id_orden, {'OBSERVADA'}, 'PENDIENTE', user)
 
     # ========================================================
     # CANCELAR (EMPRESA)
     # ========================================================
 
-    async def cancelar(self, id_orden: str):
-
-        orden = await self.obtener_por_id(id_orden)
-
-        if orden["estado"] not in [
-            "PENDIENTE",
-            "OBSERVADA",
-            "APROBADA"
-        ]:
-            raise HTTPException(
-                status_code=409,
-                detail="La orden ya no puede cancelarse"
-            )
-
-        return await self.repository.cambiar_estado(
-            id_orden,
-            "CANCELADA"
-        )
+    async def cancelar(self, id_orden, user=None, motivo='Cancelación de solicitud'):
+        from app.services.abastecimiento_service import AbastecimientoService
+        return await AbastecimientoService.transicion(id_orden, {'PENDIENTE', 'OBSERVADA', 'APROBADA'}, 'CANCELADA', user, motivo)
 
     # ========================================================
     # ORDENES DEL PROVEEDOR (ENVIADA / PARCIAL)
@@ -423,92 +175,15 @@ class OrdenReposicionService:
     # El operario parte de estos datos al recibir.
     # ========================================================
 
-    async def registrar_despacho(
-        self,
-        id_orden: str,
-        data: DespachoRequest
-    ):
-
-        orden = await self.obtener_por_id(id_orden)
-
-        if orden["estado"] not in [
-            "ENVIADA",
-            "PARCIAL"
-        ]:
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    "Solo se registra despacho de una "
-                    "orden ENVIADA o PARCIAL"
-                )
-            )
-
-        detalles = {
-            detalle["id_detalle_reposicion"]: detalle
-            for detalle in (
-                await self.detalle_repository.obtener_por_orden(
-                    id_orden
-                )
-            )
-        }
-
-        lineas = []
-
-        for linea in data.lineas:
-
-            detalle = detalles.get(
-                linea.id_detalle_reposicion
-            )
-
-            if not detalle:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        "La línea "
-                        f"{linea.id_detalle_reposicion} "
-                        "no pertenece a la orden"
-                    )
-                )
-
-            item = linea.model_dump()
-
-            item["id_producto"] = detalle["id_producto"]
-
-            lineas.append(item)
-
-        ahora = datetime.now(timezone.utc)
-
-        return await self.repository.actualizar(
-            id_orden,
-            {
-                "despacho": {
-                    "lineas": lineas,
-                    "observacion": data.observacion,
-                    "fecha": ahora
-                },
-                "fecha_despacho": ahora
-            }
-        )
+    async def registrar_despacho(self, id_orden, data, user=None):
+        from app.services.abastecimiento_service import AbastecimientoService
+        return await AbastecimientoService.despacho(id_orden, data, user)
 
     # ========================================================
     # ELIMINAR (OPERARIO): solo PENDIENTE
     # ========================================================
 
-    async def eliminar(self, id_orden: str):
-
-        orden = await self.obtener_por_id(id_orden)
-
-        if orden["estado"] != "PENDIENTE":
-            raise HTTPException(
-                status_code=409,
-                detail="Solo una orden pendiente puede eliminarse"
-            )
-
-        await self.repository.eliminar(
-            id_orden
-        )
-
-        return {
-            "mensaje":
-                "Orden de reposición eliminada correctamente"
-        }
+    async def eliminar(self, id_orden, user=None):
+        from app.services.abastecimiento_service import AbastecimientoService
+        await AbastecimientoService.transicion(id_orden, {'PENDIENTE'}, 'CANCELADA', user, 'Solicitud retirada por el operario')
+        return {'mensaje': 'Solicitud cancelada; se conserva su historial'}

@@ -101,7 +101,7 @@ class ZonaService:
     # ============================================================
 
     @staticmethod
-    async def crear(
+    async def _crear(
         data: ZonaCreate
     ) -> Dict[str, Any]:
 
@@ -154,6 +154,7 @@ class ZonaService:
                 uuid4()
             ),
 
+            "codigo": data.codigo, "max_racks": data.capacidad, "estado": data.estado, "descripcion": data.descripcion,
             "id_almacen":
                 data.id_almacen,
 
@@ -315,7 +316,7 @@ class ZonaService:
     # ============================================================
 
     @staticmethod
-    async def actualizar(
+    async def _actualizar(
         id_zona: str,
         data: ZonaUpdate
     ) -> Dict[str, Any]:
@@ -420,7 +421,7 @@ class ZonaService:
     # ============================================================
 
     @staticmethod
-    async def eliminar(
+    async def _eliminar(
         id_zona: str
     ) -> Dict[str, str]:
 
@@ -444,6 +445,10 @@ class ZonaService:
         from app.repositories.rack_repository import RackRepository
         if await RackRepository.obtener_por_zona(id_zona):
             raise HTTPException(409,"La zona tiene racks; no puede eliminarse")
+        from app.database.mongodb import get_database
+        for collection in ('dispositivos', 'movimientos', 'alertas'):
+            if await get_database()[collection].find_one({'id_zona': id_zona}):
+                raise HTTPException(409, 'La zona tiene referencias; desactive o archive la ubicacion')
         deleted = await (
             ZonaRepository.eliminar(
                 id_zona
@@ -466,3 +471,18 @@ class ZonaService:
             "mensaje":
                 "Zona eliminada correctamente"
         }
+    @staticmethod
+    async def crear(data):
+        from app.services.jerarquia_service import JerarquiaService
+        return await JerarquiaService.crear_zona(data)
+
+    @staticmethod
+    async def actualizar(identifier, data):
+        from app.services.jerarquia_service import JerarquiaService
+        return await JerarquiaService.actualizar_zona(identifier, data)
+
+    @staticmethod
+    async def eliminar(identifier):
+        from app.services.stock_lock import bloqueo_recurso
+        async with bloqueo_recurso('zona:' + identifier):
+            return await ZonaService._eliminar(identifier)

@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, Literal
 
 from pydantic import (
     BaseModel,
@@ -14,6 +14,10 @@ from pydantic import (
 # ============================================================
 
 class AlmacenCreate(BaseModel):
+    codigo: str | None = Field(default=None, max_length=50)
+    descripcion: str | None = Field(default=None, max_length=1000)
+    ubicacion: str | None = Field(default=None, max_length=500)
+    estado: Literal['ACTIVO', 'INACTIVO'] = 'ACTIVO'
 
     # Se ignora: se toma del token.
     id_empresa: Optional[str] = None
@@ -62,6 +66,10 @@ class AlmacenCreate(BaseModel):
 # ============================================================
 
 class AlmacenUpdate(BaseModel):
+    codigo: str | None = Field(default=None, max_length=50)
+    descripcion: str | None = Field(default=None, max_length=1000)
+    ubicacion: str | None = Field(default=None, max_length=500)
+    estado: Literal['ACTIVO', 'INACTIVO'] | None = None
 
     nombre: Optional[str] = Field(
         default=None,
@@ -115,6 +123,10 @@ class AlmacenUpdate(BaseModel):
 # ============================================================
 
 class AlmacenResponse(BaseModel):
+    codigo: str | None = None
+    descripcion: str | None = None
+    ubicacion: str | None = None
+    estado: Literal['ACTIVO', 'INACTIVO'] = 'ACTIVO'
 
     id: str = Field(
         validation_alias=AliasChoices(

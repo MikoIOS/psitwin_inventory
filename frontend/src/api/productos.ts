@@ -9,13 +9,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSession } from '@/auth/SessionContext'
 import { api, seg } from './client'
-import { norm } from './normalize'
+import { norm, requireList } from './normalize'
 import { queryKeys } from './queryKeys'
 import type { Producto, ProductoCreate, ProductoUpdate } from './types'
 
 export const productosApi = {
   create: async (body: ProductoCreate): Promise<Producto> => norm.producto.one(await api.post('/productos', body)),
-  list: async (): Promise<Producto[]> => norm.producto.list(await api.get('/productos')),
+  list: async (): Promise<Producto[]> => norm.producto.list(requireList(await api.get('/productos'))),
   listRefrigerados: async (): Promise<Producto[]> => norm.producto.list(await api.get('/productos/refrigerados')),
   listByAlmacen: async (idAlmacen: string): Promise<Producto[]> =>
     norm.producto.list(await api.get(`/productos/almacen/${seg(idAlmacen)}`)),
@@ -64,7 +64,7 @@ export function useCreateProducto() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: productosApi.create,
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.productos.all }),
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: queryKeys.productos.all }), qc.invalidateQueries({ queryKey: ['abastecimiento'] })]),
   })
 }
 
@@ -73,6 +73,7 @@ export function useUpdateProducto() {
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: ProductoUpdate | { id_rack: string } }) => productosApi.update(id, body),
     onSuccess: (producto) => {
+      void qc.invalidateQueries({ queryKey: ['abastecimiento'] })
       qc.setQueryData(queryKeys.productos.detail(producto.id_producto), producto)
       return qc.invalidateQueries({ queryKey: queryKeys.productos.all })
     },

@@ -443,7 +443,7 @@ class InventoryRiskService:
                     resultado.explicacion,
 
                 origen=
-                    "MOTOR_SEGURIDAD_LIGHTGBM"
+                    "MOTOR_SEGURIDAD_AUTOGLUON"
             )
         )
 

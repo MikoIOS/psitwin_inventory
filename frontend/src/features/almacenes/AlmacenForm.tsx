@@ -18,6 +18,10 @@ import { numero, numStr, texto } from '@/lib/zod'
 export const TIPOS_ALMACEN = ['Alimentos', 'General', 'Secos', 'Refrigerado', 'Congelado', 'Mixto', 'Cross-docking', 'Materia prima', 'Producto terminado']
 
 export const almacenSchema = z.object({
+  codigo: texto({ min: 1, max: 50 }),
+  descripcion: z.string().max(1000),
+  ubicacion: z.string().max(500),
+  estado: z.enum(['ACTIVO', 'INACTIVO']),
   nombre: texto({ min: 2, max: 100 }),
   tipo_almacen: texto({ min: 2, max: 100 }),
   area_m2: numero({ mayorQue: 0 }),
@@ -36,6 +40,10 @@ void _check
 
 export function almacenDefaults(a?: Almacen | null): AlmacenFormInput {
   return {
+    codigo: a?.codigo ?? a?.nombre.toUpperCase() ?? '',
+    descripcion: a?.descripcion ?? '',
+    ubicacion: a?.ubicacion ?? '',
+    estado: a?.estado === 'INACTIVO' ? 'INACTIVO' : 'ACTIVO',
     nombre: a?.nombre ?? '',
     tipo_almacen: a?.tipo_almacen ?? 'Alimentos',
     area_m2: numStr(a?.area_m2),
@@ -146,6 +154,12 @@ export function AlmacenForm({ almacen, onSubmit, onSuccess, onCancel, submitLabe
 
   return (
     <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-5">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Código del almacén" required error={err.codigo?.message}><Input {...register('codigo')} /></Field>
+        <Field label="Estado del almacén"><Select placeholder={false} options={[{ value: 'ACTIVO', label: 'Activo' }, { value: 'INACTIVO', label: 'Inactivo' }]} {...register('estado')} /></Field>
+        <Field label="Descripción"><Input {...register('descripcion')} /></Field>
+        <Field label="Ubicación registrada"><Input {...register('ubicacion')} /></Field>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Nombre del almacén" error={err.nombre?.message} required className="sm:col-span-2">
           <Input placeholder="Almacén Principal" {...register('nombre')} />

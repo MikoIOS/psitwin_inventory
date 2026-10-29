@@ -139,6 +139,9 @@ async def login(
 
             raise _credenciales_invalidas()
 
+        if empresa.get('requiere_verificacion_registro') is True and empresa.get('correo_verificado') is not True:
+            raise HTTPException(403, 'Verifica tu correo antes de iniciar sesión. Solicita otro enlace desde Registrar empresa si lo necesitas.')
+
         return {
 
             "access_token":

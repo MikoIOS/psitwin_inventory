@@ -1,3 +1,4 @@
+import { inventarioDetalleId } from '@/api/inventarios'
 /**
  * Formularios de inventario.
  *
@@ -17,7 +18,8 @@ import { useRack } from '@/api/racks'
 import { useZona } from '@/api/zonas'
 import type { Inventario, InventarioCreate, InventarioUpdate } from '@/api/types'
 import { useUbicaciones } from '@/api/ubicaciones'
-import { ProductoSelect } from '@/components/selects'
+import { ProductoSelect, NivelSelect } from '@/components/selects'
+import { useRol } from '@/auth/useRol'
 import { Button, Field, Input, LoadingBlock, useToast } from '@/components/ui'
 import { formatNumero } from '@/lib/format'
 import { idRequerido, numero, numStr } from '@/lib/zod'
@@ -41,9 +43,10 @@ const crearSchema = z
     id_almacen: idRequerido('Selecciona un almacén'),
     id_zona: idRequerido('Selecciona una zona'),
     id_rack: idRequerido('Selecciona un rack'),
-    stock_actual: numero({ min: 0, entero: true }),
-    stock_minimo: numero({ min: 0, entero: true }),
-    stock_maximo: numero({ min: 0, entero: true }),
+    id_nivel: z.string(),
+    stock_actual: numero({ min: 0 }),
+    stock_minimo: numero({ min: 0 }),
+    stock_maximo: numero({ min: 0 }),
   })
   .superRefine(validarLimites)
   .superRefine((v, ctx) => {
@@ -67,6 +70,7 @@ export interface InventarioCrearFormProps {
 }
 
 export function InventarioCrearForm(props: InventarioCrearFormProps) {
+  const { esEmpresa } = useRol()
   const ub = useUbicaciones()
   if (props.idRack && ub.isLoading) return <LoadingBlock label="Cargando ubicaciones…" />
   const u = props.idRack ? ub.porRack.get(props.idRack) : undefined
@@ -75,14 +79,16 @@ export function InventarioCrearForm(props: InventarioCrearFormProps) {
     id_almacen: u?.almacen.id_almacen ?? '',
     id_zona: u?.zona.id_zona ?? '',
     id_rack: u?.rack.id_rack ?? '',
+    id_nivel: '',
     stock_actual: '0',
-    stock_minimo: '',
-    stock_maximo: '',
+    stock_minimo: esEmpresa ? '' : '0',
+    stock_maximo: esEmpresa ? '' : '0',
   }
   return <CrearInner {...props} defaults={defaults} />
 }
 
 function CrearInner({ productoFijo, onSuccess, onCancel, defaults }: InventarioCrearFormProps & { defaults: CrearIn }) {
+  const { esEmpresa } = useRol()
   const toast = useToast()
   const crear = useCreateInventario()
   const apiError = useInlineApiError()
@@ -98,7 +104,7 @@ function CrearInner({ productoFijo, onSuccess, onCancel, defaults }: InventarioC
 
   const submit = handleSubmit(async ({ id_almacen: _a, id_zona: _z, ...values }) => {
     apiError.clear()
-    if (existentes.data?.some((inv) => inv.id_rack === values.id_rack)) {
+    if (existentes.data?.some((inv) => inv.id_rack === values.id_rack && (inv.id_nivel ?? '') === values.id_nivel)) {
       setError('id_rack', { message: 'Este producto ya tiene inventario en ese rack' }, { shouldFocus: true })
       return
     }
@@ -113,7 +119,7 @@ function CrearInner({ productoFijo, onSuccess, onCancel, defaults }: InventarioC
       setError('stock_actual', { message: `Pesa ${formatNumero(carga)} kg y el rack solo soporta ${formatNumero(libre)} kg más` }, { shouldFocus: true })
       return
     }
-    const body: InventarioCreate = values
+    const body: InventarioCreate = { ...values, id_nivel: values.id_nivel || null, id_almacen: idAlmacen }
     try {
       const inv = await crear.mutateAsync(body)
       toast.success('Inventario creado')
@@ -126,6 +132,7 @@ function CrearInner({ productoFijo, onSuccess, onCancel, defaults }: InventarioC
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-5">
       <ApiErrorAlert error={apiError.error} />
+      <Field label="Nivel de destino"><NivelSelect idRack={idRack || undefined} {...register('id_nivel')} /></Field>
 
       {productoFijo ? (
         <div className="rounded-md border border-border bg-surface-2/60 px-4 py-3">
@@ -155,24 +162,25 @@ function CrearInner({ productoFijo, onSuccess, onCancel, defaults }: InventarioC
           almacen: register('id_almacen', {
             onChange: () => {
               setValue('id_zona', '')
+              setValue('id_nivel', '')
               setValue('id_rack', '')
             },
           }),
-          zona: register('id_zona', { onChange: () => setValue('id_rack', '') }),
-          rack: register('id_rack'),
+          zona: register('id_zona', { onChange: () => { setValue('id_rack', ''); setValue('id_nivel', '') } }),
+          rack: register('id_rack', { onChange: () => setValue('id_nivel', '') }),
         }}
         errores={{ almacen: err.id_almacen?.message, zona: err.id_zona?.message, rack: err.id_rack?.message }}
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Field label="Stock inicial" error={err.stock_actual?.message} required hint="No puede superar el stock máximo.">
-          <Input type="number" inputMode="numeric" min={0} step={1} suffix="und." {...register('stock_actual')} />
+          <Input type="number" readOnly min={0} step="any" suffix="" {...register('stock_actual')} />
         </Field>
         <Field label="Stock mínimo" error={err.stock_minimo?.message} required hint="Debajo de este valor: stock bajo.">
-          <Input type="number" inputMode="numeric" min={0} step={1} suffix="und." placeholder="20" {...register('stock_minimo')} />
+          <Input type="number" disabled={!esEmpresa} min={0} step="any" suffix="" placeholder="20" {...register('stock_minimo')} />
         </Field>
         <Field label="Stock máximo" error={err.stock_maximo?.message} required hint="Encima de este valor: sobre stock.">
-          <Input type="number" inputMode="numeric" min={0} step={1} suffix="und." placeholder="200" {...register('stock_maximo')} />
+          <Input type="number" disabled={!esEmpresa} min={0} step="any" suffix="" placeholder="200" {...register('stock_maximo')} />
         </Field>
       </div>
 
@@ -187,8 +195,8 @@ function CrearInner({ productoFijo, onSuccess, onCancel, defaults }: InventarioC
 
 const limitesSchema = z
   .object({
-    stock_minimo: numero({ min: 0, entero: true }),
-    stock_maximo: numero({ min: 0, entero: true }),
+    stock_minimo: numero({ min: 0 }),
+    stock_maximo: numero({ min: 0 }),
   })
   .superRefine(validarLimites)
 
@@ -216,7 +224,7 @@ export function InventarioLimitesForm({ inventario, onSuccess, onCancel }: Inven
     apiError.clear()
     const body: InventarioUpdate = values
     try {
-      const inv = await actualizar.mutateAsync({ id: inventario.id_inventario, body })
+      const inv = await actualizar.mutateAsync({ id: inventarioDetalleId(inventario), body })
       toast.success('Límites de stock actualizados')
       onSuccess?.(inv)
     } catch (e) {

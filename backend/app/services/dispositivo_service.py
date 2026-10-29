@@ -76,6 +76,15 @@ def _aware(
 
 
 class DispositivoService:
+    @staticmethod
+    async def validar_nivel(identifier, rack_id):
+        if not identifier:
+            return
+        from app.database.mongodb import get_database
+        level = await get_database()['niveles'].find_one({'id_nivel': identifier, 'id_rack': rack_id})
+        if not level or level.get('estado', 'ACTIVO') != 'ACTIVO':
+            raise HTTPException(422, 'El nivel no pertenece al rack seleccionado')
+
 
     # ============================================================
     # RESPUESTA
@@ -136,6 +145,9 @@ class DispositivoService:
                     []
                 )
             )
+            latest = item['estado'].get('ultima_lectura') or {}
+            item['parametros_disponibles'] = sorted(set(documento.get('parametros_disponibles', [])) |
+                {p for p in (*CAMPOS_NUMERICOS, 'puerta') if latest.get(p) is not None})
 
             resultado.append(item)
 
@@ -214,6 +226,7 @@ class DispositivoService:
             data.id_rack
         )
 
+        await DispositivoService.validar_nivel(data.id_nivel, data.id_rack)
         token = secrets.token_urlsafe(24)
 
         ahora = datetime.now(
@@ -226,6 +239,7 @@ class DispositivoService:
             "id_almacen": data.id_almacen,
             "id_zona": data.id_zona,
             "id_rack": data.id_rack,
+            "id_nivel": data.id_nivel,
             "nombre": data.nombre.strip(),
             "activo": True,
             "token_hash": hash_token(token),
@@ -260,7 +274,10 @@ class DispositivoService:
     @staticmethod
     async def listar_documentos(
         user: UsuarioActual,
-        id_zona: Optional[str] = None
+        id_zona: Optional[str] = None,
+        id_almacen: Optional[str] = None,
+        id_rack: Optional[str] = None,
+        tipo: Optional[str] = None
     ) -> List[Dict[str, Any]]:
 
         filtro: Dict[str, Any] = {
@@ -272,6 +289,14 @@ class DispositivoService:
 
         if id_zona:
             filtro["id_zona"] = id_zona
+        if id_almacen:
+            if user.es_operario and id_almacen != user.id_almacen:
+                return []
+            filtro['id_almacen'] = id_almacen
+        if id_rack:
+            filtro['id_rack'] = id_rack
+        if tipo:
+            filtro['parametros_disponibles'] = tipo
 
         return await DispositivoRepository.listar(
             filtro
@@ -281,13 +306,19 @@ class DispositivoService:
     @staticmethod
     async def listar(
         user: UsuarioActual,
-        id_zona: Optional[str] = None
+        id_zona: Optional[str] = None,
+        id_almacen: Optional[str] = None,
+        id_rack: Optional[str] = None,
+        tipo: Optional[str] = None
     ) -> List[Dict[str, Any]]:
 
         return await DispositivoService.respuestas(
             await DispositivoService.listar_documentos(
                 user,
-                id_zona
+                id_zona,
+                id_almacen,
+                id_rack,
+                tipo
             )
         )
 
@@ -362,6 +393,11 @@ class DispositivoService:
             )
 
             cambios["id_rack"] = data.id_rack
+
+        if 'id_nivel' in enviados or 'id_rack' in enviados:
+            level_id = data.id_nivel if 'id_nivel' in enviados else actual.get('id_nivel')
+            await DispositivoService.validar_nivel(level_id, cambios.get('id_rack', actual.get('id_rack')))
+            cambios['id_nivel'] = level_id
 
         if data.limites is not None:
             cambios["limites"] = data.limites.model_dump(
@@ -462,7 +498,10 @@ class DispositivoService:
         id_dispositivo: str,
         user: UsuarioActual,
         desde: Optional[datetime],
-        hasta: Optional[datetime]
+        hasta: Optional[datetime],
+        pagina: int = 1,
+        limite: int = 2000,
+        tipo: Optional[str] = None
     ) -> Dict[str, Any]:
 
         await DispositivoService.obtener_documento(
@@ -480,75 +519,29 @@ class DispositivoService:
                 detail="desde no puede ser posterior a hasta"
             )
 
-        if hasta - desde <= VENTANA_CRUDA:
-
-            puntos = await LecturaRepository.crudas(
-                id_dispositivo,
-                desde,
-                hasta
-            )
-
-            paso = max(
-                1,
-                -(-len(puntos) // MAX_PUNTOS_CRUDOS)
-            )
-
-            return {
-                "id_dispositivo": id_dispositivo,
-                "desde": desde,
-                "hasta": hasta,
-                "resolucion": "cruda",
-                "puntos": puntos[::paso]
-            }
-
+        if hasta - desde > timedelta(days=366) or not 1 <= limite <= 2000 or not 1 <= pagina <= 10000:
+            raise HTTPException(422, 'El rango máximo es 366 días y la página admite hasta 2000 puntos.')
+        minuto = hasta - desde > VENTANA_CRUDA
+        if tipo is not None and tipo not in (*CAMPOS_NUMERICOS, 'puerta'):
+            raise HTTPException(422, 'Tipo de sensor no válido')
+        filas, hay_mas = await LecturaRepository.pagina(user.id_empresa, id_dispositivo, desde, hasta, minuto, pagina, limite, tipo)
         puntos = []
-
-        for fila in await LecturaRepository.por_minuto(
-            id_dispositivo,
-            desde,
-            hasta
-        ):
-
-            punto: Dict[str, Any] = {
-                "ts": fila["minuto"]
-            }
-
+        for fila in filas:
+            if not minuto:
+                puntos.append(fila)
+                continue
+            punto = {'ts': fila['minuto']}
             for campo in CAMPOS_NUMERICOS:
-
                 valores = fila.get(campo)
-
-                punto[campo] = (
-                    {
-                        "min": valores["min"],
-                        "max": valores["max"],
-                        "prom": round(
-                            valores["suma"] / valores["n"],
-                            3
-                        )
-                    }
-                    if valores and valores.get("n")
-                    else None
-                )
-
-            puerta = fila.get("puerta")
-
-            punto["puerta"] = (
-                {
-                    "fraccion_abierta": round(
-                        puerta["abiertas"] / puerta["n"],
-                        3
-                    )
-                }
-                if puerta and puerta.get("n")
-                else None
-            )
-
+                punto[campo] = {'min': valores['min'], 'max': valores['max'], 'prom': valores['suma'] / valores['n']} if valores and valores.get('n') else None
+            puerta = fila.get('puerta')
+            punto['puerta'] = {'fraccion_abierta': puerta['abiertas'] / puerta['n']} if puerta and puerta.get('n') else None
             puntos.append(punto)
-
-        return {
-            "id_dispositivo": id_dispositivo,
-            "desde": desde,
-            "hasta": hasta,
-            "resolucion": "minuto",
-            "puntos": puntos
-        }
+        resumen = await LecturaRepository.resumen(user.id_empresa, id_dispositivo, desde, hasta)
+        if tipo:
+            puntos = [{'ts': row['ts'], tipo: row.get(tipo)} for row in puntos]
+            resumen = {tipo: resumen[tipo]} if tipo in resumen else {}
+        return {'id_dispositivo': id_dispositivo, 'desde': desde, 'hasta': hasta,
+                'resolucion': 'minuto' if minuto else 'cruda', 'puntos': puntos,
+                'pagina': pagina, 'limite': limite, 'hay_mas': hay_mas,
+                'resumen': resumen}
