@@ -18,6 +18,7 @@ import { paths } from '@/paths'
 import { AlmacenFormModal, EliminarAlmacenDialog } from './AlmacenDialogs'
 import PlanoImagen from '@/assets/PlanoImagen.jpeg'
 
+
 export default function InicioPage() {
   const { empresa } = useEmpresa()
   const almacenesQ = useAlmacenes()
