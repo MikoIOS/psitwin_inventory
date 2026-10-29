@@ -30,7 +30,6 @@ import { formatNumero } from '@/lib/format'
 import { ProveedorDetalleModal } from './ProveedorDetalleModal'
 import { ProveedorForm, type ProveedorFormOutput } from './ProveedorForm'
 import { BadgesCuenta, CredencialesEntregaModal, RestablecerPasswordModal } from '@/components/CredencialesModal'
-import { VerificarCorreoModal } from './VerificarCorreoModal'
 
 const FORM_ID = 'form-proveedor'
 
@@ -123,7 +122,6 @@ export default function ProveedoresPage() {
     }
   }
 
-  const [aVerificar, setAVerificar] = useState<Proveedor | null>(null)
   const toggleEstado = (p: Proveedor) => {
     const nuevo: EstadoProveedor = p.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO'
     setTogglingId(p.id_proveedor)
@@ -255,8 +253,7 @@ export default function ProveedoresPage() {
               <span className="block min-w-0">
                 <span className="block truncate font-medium text-fg">{p.nombre}</span>
                 <span className="block truncate text-xs font-normal text-fg-muted">
-                  {p.correo}
-                  {p.correo ? (p.correo_verificado ? ' · verificado' : ' · sin verificar') : 'Sin correo'}
+                  {p.correo || 'Sin correo'}
                 </span>
                 <span className="mt-0.5 flex flex-wrap gap-1 empty:hidden">
                   <BadgesCuenta cuenta={p} />
@@ -276,11 +273,6 @@ export default function ProveedoresPage() {
         ]}
         actions={(p) => (
           <>
-            {p.correo && !p.correo_verificado && (
-              <Button size="sm" variant="ghost" onClick={() => setAVerificar(p)}>
-                Verificar correo
-              </Button>
-            )}
             <Button
               size="sm"
               variant="ghost"
@@ -306,7 +298,6 @@ export default function ProveedoresPage() {
         )}
       />
 
-      <VerificarCorreoModal proveedor={aVerificar} onClose={() => setAVerificar(null)} />
       <RestablecerPasswordModal
         cuenta={aRestablecer ? { id: aRestablecer.id_proveedor, nombre: aRestablecer.nombre, correo: aRestablecer.correo, tiene_cuenta: aRestablecer.tiene_cuenta } : null}
         onReset={(id, body) => resetear.mutateAsync({ id, body })}
