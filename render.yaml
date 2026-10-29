@@ -21,9 +21,9 @@ services:
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: "60"
       - key: CORS_ORIGINS
-        sync: false # URL HTTPS real del frontend, sin barra final.
+        value: https://psitwin-inventory.vercel.app
       - key: FRONTEND_URL
-        sync: false # La misma URL pública del frontend.
+        value: https://psitwin-inventory.vercel.app
       - key: EMAIL_ENABLED
         value: "false"
       # Sin broker MQTT en la nube todavía. Al desplegar Mosquitto,

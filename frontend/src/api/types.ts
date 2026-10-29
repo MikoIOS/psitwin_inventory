@@ -529,8 +529,13 @@ export interface DetalleReposicionUpdate {
 /** Línea de una recepción (body de `POST /recepciones` → `detalles[]`). */
 export interface DetalleRecepcionCreate {
   id_detalle_reposicion: Id
-  /** OBLIGATORIO: inventario del producto de la línea en un rack del almacén de la orden. */
+  /** Inventario general del almacén de la orden. */
   id_inventario: Id
+  /** Ubicación del producto dentro del inventario general del almacén. */
+  id_rack: Id
+  stock_minimo: number
+  stock_maximo: number
+
   /** > 0 */
   cantidad_recibida: number
   /** ≤ recibida. Si > 0 exige motivo_rechazo (o comentario_recepcion). */

@@ -2,6 +2,7 @@
 
 from importlib import import_module
 from typing import Any
+from app.database.alerta_indexes import ensure_alerta_indexes
 
 
 try:
@@ -68,10 +69,7 @@ async def connect_to_mongo():
             [("id_detalle_inventario", 1)], name="ix_recepcion_detalle_inventario")
         await database["inventario_historial"].create_index(
             [("id_inventario", 1), ("id_detalle_inventario", 1), ("fecha", -1)], name="ix_historial_inventario_v2")
-        await database["alertas"].create_index(
-            [("id_inventario", 1), ("id_producto", 1), ("id_detalle_inventario", 1), ("tipo_alerta", 1)],
-            unique=True, partialFilterExpression={"estado": {"$in": ["ACTIVA", "VISTA"]}},
-            name="uq_alerta_activa_producto_ubicacion")
+        await ensure_alerta_indexes(database["alertas"])
         await database["recomendaciones"].create_index(
             [("id_inventario", 1), ("id_producto", 1), ("id_detalle_inventario", 1), ("tipo_recomendacion", 1)],
             unique=True, partialFilterExpression={"estado": {"$in": ["PENDIENTE", "ACEPTADA"]}},

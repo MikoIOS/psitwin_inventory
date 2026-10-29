@@ -5,8 +5,8 @@
  * ENTRADA/RECEPCION + estado de la orden PARCIAL / RECIBIDA).
  *  - Parte del DESPACHO del proveedor si existe: precarga cantidad, vencimiento y temperatura de cada línea.
  *  - Rack de destino por línea: `GET /racks/disponibles?id_almacen=&id_producto=&cantidad=` (racks DISPONIBLES donde
- *    cabe por kg y temperatura), primero los que ya tienen el producto. Al enviar se usa el inventario del producto
- *    en ese rack o, si no existe, se crea (stock 0, mín/máx editables).
+ *    cabe por kg y temperatura), primero los que ya tienen el producto. El backend resuelve la ubicación
+ *    en ese rack dentro del inventario general del almacén (mín/máx editables).
  *  - Por línea: recibida, rechazadas (parcial), estado CONFORME / RECHAZADO (no ingresa nada) / EN_EVALUACION
  *    (se resuelve luego en el detalle de la recepción), vencimiento, temperatura (obligatoria y dentro del rango del
  *    producto si es refrigerado) y comentario (obligatorio si hay rechazo o no es conforme).
@@ -20,10 +20,10 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { Controller, useFieldArray, useForm, useWatch, type Control, type FieldErrors, type UseFormRegister, type UseFormSetValue } from 'react-hook-form'
 import { z } from 'zod'
-import { ApiError } from '@/api/client'
+import { api, ApiError } from '@/api/client'
 import { ACCIONES_ORDEN, ESTADO_RECEPCION_OPCIONES } from '@/api/enums'
 import { useDetallesReposicion, useOrdenes } from '@/api/ordenesReposicion'
-import { inventariosApi, useCreateInventario, useInventarios } from '@/api/inventarios'
+import { useInventarios } from '@/api/inventarios'
 import { useProductos } from '@/api/productos'
 import { queryKeys } from '@/api/queryKeys'
 import { useRacksDisponibles } from '@/api/racks'
@@ -114,6 +114,9 @@ function aDetalleCreate(l: LineaIn, idInventario: string): DetalleRecepcionCreat
   return {
     id_detalle_reposicion: l.id_detalle_reposicion,
     id_inventario: idInventario,
+    id_rack: l.id_rack,
+    stock_minimo: l.stock_minimo.trim() === '' ? 0 : num(l.stock_minimo),
+    stock_maximo: l.stock_maximo.trim() === '' ? Math.max(unidadesAUbicar(l), 1) : num(l.stock_maximo),
     cantidad_recibida: recibida,
     cantidad_rechazada: rechazada,
     motivo_rechazo: rechazada > 0 ? comentario : null,
@@ -271,7 +274,6 @@ function RecepcionForm({
 }) {
   const toast = useToast()
   const qc = useQueryClient()
-  const crearInv = useCreateInventario()
   const apiError = useInlineApiError()
   const nombres = useNombres()
   const productos = useProductos().data
@@ -336,27 +338,14 @@ function RecepcionForm({
     })
     if (tempMal) return
     try {
-      // Inventario de destino de cada línea: el del producto en el rack elegido; si no existe, se crea vacío.
-      const detalles: DetalleRecepcionCreate[] = []
-      for (const l of v.lineas.filter((x) => x.incluir)) {
-        const idProducto = pendientes.find((p) => p.detalle.id_detalle_reposicion === l.id_detalle_reposicion)!.detalle.id_producto
-        const enRack = await qc.fetchQuery({
-          queryKey: queryKeys.inventarios.byRack(l.id_rack),
-          queryFn: () => inventariosApi.listByRack(l.id_rack),
-          staleTime: 0,
-        })
-        const u = unidadesAUbicar(l)
-        const inv =
-          enRack.find((i) => i.id_producto === idProducto) ??
-          (await crearInv.mutateAsync({
-            id_producto: idProducto,
-            id_rack: l.id_rack,
-            stock_actual: 0,
-            stock_minimo: l.stock_minimo.trim() === '' ? 0 : num(l.stock_minimo),
-            stock_maximo: l.stock_maximo.trim() === '' ? Math.max(u, 1) : num(l.stock_maximo),
-          }))
-        detalles.push(aDetalleCreate(l, inv.id_inventario))
-      }
+      // El inventario v2 pertenece al almacén. La recepción resuelve o crea
+      // cada ubicación producto/rack en el backend, sin altas previas de stock.
+      const inventario = await api.post<{ id_inventario: string }>('/inventarios', {
+        id_almacen: orden.id_almacen,
+      })
+      const detalles = v.lineas
+        .filter((l) => l.incluir)
+        .map((l) => aDetalleCreate(l, inventario.id_inventario))
       const rec = await crear.mutateAsync({
         id_orden_reposicion: orden.id_orden_reposicion,
         observaciones_generales: v.observaciones_generales,
