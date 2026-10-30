@@ -53,6 +53,12 @@ class SaikiIntentRouter:
                 if cls.classify(previous).kind == 'conversation':
                     return SaikiIntent('conversation', frozenset())
                 break
+        if re.search(r'\b(?:que es|que significa|como se calcula|como se mide)\s+(?:la |el )?'
+                     r'(?:ocupacion|carga|capacidad)\b', text):
+            return SaikiIntent('conversation', frozenset())
+        if re.search(r'\bracks?\b.*\b(?:llenos?|ocupados?|vacios?|carga|ocupacion|capacidad)\b|'
+                     r'\b(?:ocupacion|carga)\b.*\bracks?\b', text):
+            return SaikiIntent('rack_occupancy', frozenset())
         if re.search(r'operario|empleado|personal', text):
             return SaikiIntent('workforce', frozenset({'get_workforce'}))
         if re.search(r'disponibilidad|analiza (?:este registro|la informacion disponible)', text):

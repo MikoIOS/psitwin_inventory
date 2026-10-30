@@ -46,7 +46,7 @@ class SaikiService:
         from pathlib import Path
         root = Path(__file__).resolve().parents[1]
         files = ("services/saiki_service.py", "services/saiki_tools.py", "services/saiki_inventory_summary.py", "services/saiki_quantities.py", "services/saiki_intent_router.py", "services/saiki_responses.py", "dto/saiki_dto.py", "prompts/saiki_system_prompt.py", "controllers/saiki_controller.py")
-        files = (*files, "services/saiki_sensors.py", "services/saiki_knowledge.py", "services/saiki_progress.py", "knowledge/psitwin.json")
+        files = (*files, "services/saiki_sensors.py", "services/saiki_knowledge.py", "services/saiki_progress.py", "knowledge/psitwin.json", "services/saiki_rack_occupancy.py")
         self.code_revision = hashlib.sha256(b"".join((root / name).read_bytes() for name in files)).hexdigest()[:12]
         self.settings = get_settings()
         self.tools = SaikiToolRegistry()
@@ -136,6 +136,10 @@ class SaikiService:
         context = dict(data.context)
         intent = intent or self.intent_router.classify(data.message or "", data.history)
         from app.services.saiki_knowledge import INTRODUCTION, help_answer
+        if intent.kind == 'rack_occupancy':
+            from app.services.saiki_rack_occupancy import rack_occupancy
+            answer, evidence = await rack_occupancy(data, user)
+            return self._verified_response(answer, context, evidence, {'backend'})
         if user and intent.kind != 'conversation':
             # Simple product location uses the authorized catalogue/stock tools.
             # The map handler also matches "dónde está", but requires a broader
@@ -854,6 +858,8 @@ class SaikiService:
                     'options': {'num_predict': getattr(self.settings, 'saiki_model_max_tokens', 512), 'num_thread': getattr(self.settings, 'ollama_num_threads', 4)},
                     'keep_alive': getattr(self.settings, 'ollama_keep_alive', '5m'),
                 }) as response:
+                    if response.status_code == 429:
+                        raise HTTPException(429, 'La IA está atendiendo otra consulta. Espera a que termine y vuelve a intentar.')
                     response.raise_for_status()
                     async for line in response.aiter_lines():
                         if not line: continue
@@ -930,11 +936,13 @@ class SaikiService:
             if connection.sock is not None:
                 connection.sock.settimeout(self.settings.ollama_read_timeout_seconds)
             response = connection.getresponse()
-            result = json.loads(response.read().decode("utf-8"))
+            if response.status == 429:
+                raise HTTPException(429, "La IA está atendiendo otra consulta. Espera a que termine y vuelve a intentar.")
             if response.status >= 400:
                 raise OllamaUnavailableError(
                     f"Ollama respondió HTTP {response.status}."
                 )
+            result = json.loads(response.read().decode("utf-8"))
         except (TimeoutError, socket.timeout) as exc:
             raise OllamaTimeoutError("Tiempo de espera agotado con Ollama.") from exc
         except (OSError, http.client.HTTPException, error.URLError) as exc:
