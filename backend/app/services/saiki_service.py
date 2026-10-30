@@ -196,7 +196,7 @@ class SaikiService:
             from app.services.saiki_abastecimiento import explicar_abastecimiento
             answer, evidence = await explicar_abastecimiento(data, user)
             return self._simple_response(answer, 'backend', evidence)
-        if user and user.es_operario and intent.kind not in {'conversation', 'courtesy'}:
+        if user and user.es_operario and intent.kind not in {'conversation', 'ambiguous', 'courtesy'}:
             if data.id_almacen and data.id_almacen != user.id_almacen:
                 raise HTTPException(403, 'El operario solo puede consultar su almacén')
             if intent.kind == 'sensors' or data.id_dispositivo:
@@ -231,12 +231,13 @@ class SaikiService:
                 names = ', '.join(row['nombre'] for row in result['almacenes'] if row['nombre'])
                 if names: answer += f' Almacenes: {names}.'
             return self._verified_response(answer, {}, {tool: result}, {source})
-        if intent.kind == 'ambiguous':
-            return self._clarification_response('¿Quieres consultar tus datos, aprender a usar una sección de PsiTwin o conversar sobre otro tema? Cuéntame un poco más.')
-        if intent.kind == 'conversation':
+        if intent.kind in {'conversation', 'ambiguous'}:
             messages = [{'role': 'system', 'content': (
                 'Eres Saiki Ψ, asistente de PsiTwin. Explica conceptos generales en español con claridad y cercanía. '
-                'No tienes datos de la empresa en esta conversación: no inventes cifras, existencias ni estados. '
+                'Usa el historial para entender la última pregunta y sus referencias. '
+                'No tienes acceso a datos actuales de la empresa en esta llamada: no inventes cifras, existencias ni estados. '
+                'Puedes explicar respuestas anteriores, pero no presentar sus cifras como inventario actualizado. '
+                'Si falta información necesaria, pide una aclaración concreta sobre lo conversado, no un menú genérico. '
                 'No inventes botones ni procedimientos de la aplicación. No uses herramientas. '
                 'Si das ejemplos, indica que son hipotéticos y no representan el inventario real.'
             )}, *data.history[-6:], {'role': 'user', 'content': data.message}]

@@ -66,3 +66,49 @@ def test_authenticated_advice_uses_qwen_and_preserves_history(monkeypatch, role,
     assert messages[1:-1] == history
     assert messages[-1] == {'role': 'user', 'content': message}
     assert 'hipotéticos' in messages[0]['content']
+
+
+@pytest.mark.parametrize('question', [
+    '¿Y si no tengo espacio suficiente?',
+    '¿Puedes ampliar ese punto?',
+    '¿Y eso cómo lo aplico?',
+    'Continúa por favor',
+    '¿Y después?',
+])
+@pytest.mark.parametrize('role', ['EMPRESA', 'OPERARIO'])
+def test_unmatched_followups_consult_qwen_with_previous_answer(monkeypatch, question, role):
+    service = SaikiService()
+    history = [{'role': 'user', 'content': QUESTION},
+               {'role': 'assistant', 'content': 'Separa los alimentos secos de los refrigerados.'}]
+    model = AsyncMock(return_value={'message': {'content': 'Puedes empezar por separar las zonas disponibles.'}})
+    monkeypatch.setattr(service, '_ollama_chat', model)
+    monkeypatch.setattr('app.services.saiki_reportes.report_answer', AsyncMock(return_value=None))
+    monkeypatch.setattr('app.services.saiki_warehouse_map.respuesta_plano', AsyncMock(return_value=None))
+    def forbidden(*args, **kwargs):
+        pytest.fail('A contextual followup must not silently become an inventory summary')
+    monkeypatch.setattr(service.tools, 'execute', forbidden)
+    monkeypatch.setattr('app.services.saiki_inventory_summary.inventory_summary', forbidden)
+    user = UsuarioActual(rol=role, id_empresa='company-1',
+                         **({'id_operario': 'op-1', 'id_almacen': 'warehouse-1'} if role == 'OPERARIO' else {}))
+    response = asyncio.run(service.ask(SaikiAskRequest(message=question, history=history), user))
+    assert response['source'] == 'ollama'
+    model.assert_awaited_once()
+    messages, tools = model.call_args.args
+    assert messages[1:-1] == history
+    assert messages[-1]['content'] == question
+    assert tools == frozenset()
+
+
+def test_ambiguous_report_confirmation_still_uses_existing_authorized_workflow(monkeypatch):
+    service = SaikiService()
+    report = AsyncMock(return_value=('El reporte está confirmado.', {'reporte_accion': {'estado': 'CONFIRMADO'}}))
+    monkeypatch.setattr('app.services.saiki_reportes.report_answer', report)
+    model = AsyncMock()
+    monkeypatch.setattr(service, '_ollama_chat', model)
+    data = SaikiAskRequest(message='Sí', context={'reporte_accion': 'report-1'})
+    user = UsuarioActual(rol='EMPRESA', id_empresa='company-1')
+    response = asyncio.run(service.ask(data, user))
+    assert response['source'] == 'backend'
+    assert response['answer'] == 'El reporte está confirmado.'
+    report.assert_awaited_once_with(data, user)
+    model.assert_not_awaited()
