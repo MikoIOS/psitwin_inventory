@@ -66,6 +66,9 @@ def test_http_transport_sends_credentials_without_redirects(monkeypatch):
 
 def test_gateway_auth_stream_tools_forecast_and_busy(monkeypatch):
     monkeypatch.setattr(gateway.settings, 'ai_service_api_key', KEY)
+    monkeypatch.setattr(gateway.settings, 'ollama_keep_alive', '5m')
+    monkeypatch.setattr(gateway.settings, 'ollama_num_threads', 4)
+    monkeypatch.setattr(gateway.os, 'cpu_count', lambda: 4)
     real_client = httpx.Client
     observed = []
     def ollama(request):
@@ -101,8 +104,8 @@ def test_gateway_auth_stream_tools_forecast_and_busy(monkeypatch):
             assert result.status_code == 200
             assert result.json()['message']['tool_calls'][0]['function']['name'] == 'stock'
             assert observed[0]['tools'] == payload['tools']
-            assert observed[0]['keep_alive'] == 0
-            assert observed[0]['options']['num_thread'] == 2
+            assert observed[0]['keep_alive'] == '5m'
+            assert observed[0]['options']['num_thread'] == 4
             assert not gateway.inference_lock.locked()
             assert (await client.post('/api/chat', json={**payload, 'model': 'other'})).status_code == 422
             gateway.inference_lock.acquire()
@@ -209,3 +212,30 @@ def test_network_setup_rejects_other_instance_before_mutation(monkeypatch):
     monkeypatch.setattr(setup, 'aws', aws)
     with pytest.raises(SystemExit): setup.main()
     assert len(calls) == 1 and calls[0][0] == 'describe-instances'
+
+
+@pytest.mark.parametrize('cpus,expected', [(2, 2), (4, 4), (None, 1)])
+def test_warm_retention_and_threads_are_controlled_by_ec2(monkeypatch, cpus, expected):
+    monkeypatch.setattr(gateway.settings, 'ai_service_api_key', KEY)
+    monkeypatch.setattr(gateway.settings, 'ollama_keep_alive', '5m')
+    monkeypatch.setattr(gateway.settings, 'ollama_num_threads', 4)
+    monkeypatch.setattr(gateway.os, 'cpu_count', lambda: cpus)
+    real_client = httpx.Client
+    def respond(request):
+        import json
+        body = json.loads(request.content)
+        assert body['keep_alive'] == '5m'
+        assert body['options']['num_thread'] == expected
+        return httpx.Response(200, json={'message': {'content': 'ok'}, 'done': True})
+    monkeypatch.setattr(gateway, 'upstream_client', lambda: real_client(
+        base_url='http://localhost:11434', transport=httpx.MockTransport(respond)))
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=gateway.app),
+            base_url='http://test', headers={'Authorization': 'Bearer ' + KEY}) as client:
+            result = await client.post('/api/chat', json={
+                'model': gateway.settings.ollama_model, 'messages': [], 'stream': False,
+                'keep_alive': -1, 'options': {'num_thread': 999}})
+            assert result.status_code == 200
+            assert result.json()['message']['content'] == 'ok'
+            assert not gateway.inference_lock.locked()
+    asyncio.run(exercise())

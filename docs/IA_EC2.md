@@ -54,9 +54,11 @@ la validación real existente para generar `runtime_validation.json` con el fing
 correcto. Sin ella el servicio reporta MODELO_NO_DISPONIBLE; `/health` puede seguir activo.
 
 Con 8.3 GB libres después de Ollama, medir tamaño de artefactos/dependencias antes
-de instalar: no asumir que todo cabe. Qwen se descarga de memoria al terminar cada
-consulta (`keep_alive=0`); el worker AutoGluon se cierra tras cada petición para dejar
-memoria disponible, conservando caché en disco. Esto implica más latencia de carga.
+de instalar: no asumir que todo cabe. Qwen permanece en RAM durante `OLLAMA_KEEP_ALIVE` (predeterminado `5m`)
+tras cada consulta. La primera consulta y las posteriores al vencimiento vuelven a
+cargar el modelo. El worker AutoGluon se cierra tras cada petición, conservando
+caché en disco. Si ambos modelos consumen demasiada RAM, configurar la retención
+a `0` y volver a medir; la exclusión mutua serializa inferencias, no libera Qwen.
 La viabilidad de ambos modelos en 8 GiB requiere una prueba real, especialmente el ensemble.
 
 ## Variables de Render (no aplicar hasta HTTPS verificado)
@@ -157,3 +159,23 @@ y el acceso HTTP externo. Una vez accesible, usar
 `bash backend/ai_service/install_ec2_apache.sh --resume-acme`. Este modo solo
 acepta el bootstrap HTTP exacto del instalador y exige que el servicio systemd
 todavía no exista; no reemplaza otros sitios ni una instalación completada.
+
+## Retención de Qwen entre consultas
+
+La API EC2 aplica `OLLAMA_KEEP_ALIVE` (predeterminado `5m`) y limita los hilos
+a `min(OLLAMA_NUM_THREADS, CPU disponibles)`; el valor de hilos predeterminado es 4.
+El cliente no puede forzar retención indefinida ni más hilos que los configurados.
+Con t3.xlarge se pueden usar las cuatro vCPU. La RAM adicional facilita mantener
+el modelo cargado; no elimina la latencia de generación por CPU.
+
+Para comprobar el efecto real, ejecutar dos consultas próximas y comparar
+`load_duration`/`total_duration` de Ollama; `ollama ps` muestra el modelo residente.
+Mantener cinco minutos desde la última consulta no precarga el modelo al arrancar.
+Al instalar AutoGluon en EC2 se debe medir el pico conjunto de memoria antes de
+aumentar concurrencia; el servidor sigue aceptando una inferencia a la vez.
+
+La ampliación aprobada se puede ejecutar desde Nobara con
+`python3 scripts/ampliar_ec2_ia.py`. Verifica nombre e IP, detiene solo psitwin,
+solicita t3.xlarge y vuelve a encenderla. Si AWS rechaza el cambio tras detenerla,
+intenta arrancarla con su configuración actual. No elimina recursos ni cambia la
+Elastic IP. El tipo mayor aumenta el gasto de cómputo mientras esté encendida.

@@ -2,6 +2,7 @@
 from contextlib import asynccontextmanager
 from datetime import date
 import hmac
+import os
 import threading
 
 import httpx
@@ -85,11 +86,11 @@ async def chat(request: Request):
         if not isinstance(options, dict):
             raise ValueError()
         payload['options'] = {
-            'num_ctx': 4096, 'num_thread': 2,
+            'num_ctx': 4096, 'num_thread': min(settings.ollama_num_threads, os.cpu_count() or 1),
             'num_predict': max(32, min(1024, int(options.get('num_predict', 512)))),
         }
-        # Release model memory after each request to leave room for AutoGluon.
-        payload['keep_alive'] = 0
+        # Keep the model warm between queries; the server controls retention.
+        payload['keep_alive'] = settings.ollama_keep_alive
     except (ValueError, TypeError) as exc:
         raise HTTPException(422, 'Modelo o mensajes inválidos') from exc
     if not inference_lock.acquire(blocking=False):
