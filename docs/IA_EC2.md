@@ -132,3 +132,21 @@ el proceso manual anterior. No copiar service.env a Git.
 
 Los pesos entrenados de AutoGluon siguen siendo necesarios: clonar el código no
 sustituye `modelo_evaluacion`, datos de validación y los pesos foundation requeridos.
+
+## EC2 con Apache preinstalado
+
+Si el puerto 80 pertenece al Apache predeterminado de Ubuntu y 443 está libre,
+usar `bash ~/psitwin-ai/repo/backend/ai_service/install_ec2_apache.sh` en lugar
+del instalador Nginx. Conserva `000-default.conf` y añade `psitwin-ai.conf`,
+seleccionado por la IP pública como ServerName. El nuevo sitio HTTP solo sirve
+el webroot de ACME; el proxy a la API existe únicamente en HTTPS.
+
+Habilita ssl, proxy, proxy_http y headers; mantiene ProxyRequests Off, reenvía
+a Uvicorn en localhost y ejecuta apache2ctl configtest antes de cada recarga.
+Certbot usa webroot (no el plugin apache, que no soporta emisión para IP en
+esta configuración); el timer recarga Apache tras renovar el certificado.
+No elimina ni deshabilita Apache ni su sitio predeterminado.
+
+Si falla una etapa, conservar el error y revisar antes de repetir. No se ha
+probado la emisión real desde la sesión de desarrollo; requiere ejecutar en EC2
+y validar el certificado, streaming y herramientas con verify_ec2.py.
