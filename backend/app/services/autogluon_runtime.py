@@ -153,4 +153,7 @@ class AutoGluonRuntime:
             return result, False
 
 
-runtime = AutoGluonRuntime()
+from app.services.remote_ai import RemoteAutoGluonRuntime
+
+runtime = (RemoteAutoGluonRuntime(get_settings()) if get_settings().autogluon_remote_url
+           else AutoGluonRuntime())

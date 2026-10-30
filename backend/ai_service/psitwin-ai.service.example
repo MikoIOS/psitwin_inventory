@@ -1,0 +1,16 @@
+[Unit]
+Description=PsiTwin AI inference API
+After=network-online.target ollama.service
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/opt/psitwin/backend
+EnvironmentFile=/etc/psitwin-ai.env
+ExecStart=/opt/psitwin/api/bin/uvicorn ai_service.main:app --host 127.0.0.1 --port 8100 --workers 1
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

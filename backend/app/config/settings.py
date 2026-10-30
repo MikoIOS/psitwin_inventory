@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     autogluon_python: str = ".autogluon.local/Scripts/python.exe" if os.name == "nt" else ".autogluon.local/bin/python"
     autogluon_cache_dir: str = "artifacts/autogluon-cache.local"
     autogluon_timeout_seconds: int = 300
+    autogluon_remote_url: str = ""
+    ai_service_api_key: str = ""
+    # Solo en EC2: Ollama local; Render usa OLLAMA_BASE_URL por HTTPS.
+    ai_ollama_local_url: str = "http://127.0.0.1:11434"
 
     # ============================================================
     # OLLAMA / SAIKI

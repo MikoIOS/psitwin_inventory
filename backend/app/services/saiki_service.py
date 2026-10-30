@@ -74,10 +74,14 @@ class SaikiService:
             }
         return {"status": "ok", "ready": True, **base}
 
+    def _ollama_headers(self):
+        from app.services.remote_ai import service_headers
+        return service_headers(self.settings, self.settings.ollama_base_url, required=False)
+
     def _installed_models(self) -> list[str]:
         url = f"{self.settings.ollama_base_url.rstrip('/')}/api/tags"
         try:
-            with request.urlopen(url, timeout=5) as response:
+            with request.urlopen(request.Request(url, headers=self._ollama_headers()), timeout=5) as response:
                 data = json.loads(response.read().decode("utf-8"))
         except (error.URLError, TimeoutError, json.JSONDecodeError) as exc:
             raise RuntimeError(f"No se pudo conectar con Ollama en {url}: {exc}") from exc
@@ -842,7 +846,7 @@ class SaikiService:
             read=max(self.settings.saiki_model_start_timeout_seconds, self.settings.saiki_idle_timeout_seconds), write=10, pool=5)
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
-                async with client.stream('POST', self.settings.ollama_base_url.rstrip('/') + '/api/chat', json={
+                async with client.stream('POST', self.settings.ollama_base_url.rstrip('/') + '/api/chat', headers=self._ollama_headers(), json={
                     'model': self.settings.ollama_model, 'messages': self._inference_messages(messages),
                     'tools': self.tools.definitions(tool_names), 'stream': True, 'think': False,
                     'options': {'num_predict': getattr(self.settings, 'saiki_model_max_tokens', 512), 'num_thread': getattr(self.settings, 'ollama_num_threads', 4)},
@@ -874,7 +878,8 @@ class SaikiService:
 
     def _inference_messages(self, messages):
         prepared = [dict(message) for message in messages]
-        if self.settings.ollama_model.casefold().startswith('qwen3'):
+        if (self.settings.ollama_model.casefold().startswith('qwen3')
+                and 'instruct' not in self.settings.ollama_model.casefold()):
             # Qwen's documented soft switch complements Ollama's think=False.
             system = next((message for message in prepared if message.get('role') == 'system'), None)
             if system is None:
@@ -897,7 +902,7 @@ class SaikiService:
         req = request.Request(
             url,
             data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", **self._ollama_headers()},
             method="POST",
         )
         parsed = urlsplit(url)
