@@ -136,7 +136,7 @@ class SaikiService:
         context = dict(data.context)
         intent = intent or self.intent_router.classify(data.message or "", data.history)
         from app.services.saiki_knowledge import INTRODUCTION, help_answer
-        if user:
+        if user and intent.kind != 'conversation':
             # Simple product location uses the authorized catalogue/stock tools.
             # The map handler also matches "dónde está", but requires a broader
             # hierarchy query and must not intercept this established fast path.
@@ -237,7 +237,8 @@ class SaikiService:
             messages = [{'role': 'system', 'content': (
                 'Eres Saiki Ψ, asistente de PsiTwin. Explica conceptos generales en español con claridad y cercanía. '
                 'No tienes datos de la empresa en esta conversación: no inventes cifras, existencias ni estados. '
-                'No inventes botones ni procedimientos de la aplicación. No uses herramientas.'
+                'No inventes botones ni procedimientos de la aplicación. No uses herramientas. '
+                'Si das ejemplos, indica que son hipotéticos y no representan el inventario real.'
             )}, *data.history[-6:], {'role': 'user', 'content': data.message}]
             try:
                 result = await self._ollama_chat(messages, frozenset())

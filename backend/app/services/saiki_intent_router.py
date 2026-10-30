@@ -40,6 +40,19 @@ class SaikiIntentRouter:
             return SaikiIntent('platform_help', frozenset())
         if re.search(r'como (?:puedo |se |hago para |podria )?(?:crear|registrar|agregar|anadir|editar|eliminar|ver|consultar|administrar|gestionar|usar|utilizar|configurar|vincular)|pasos para|donde (?:creo|registro|agrego)|como funciona|ayuda (?:con|para)|funciones de psitwin|limitaciones de psitwin', text):
             return SaikiIntent('platform_help', frozenset())
+        if cls._general_advice(text):
+            return SaikiIntent('conversation', frozenset())
+        if cls._example_followup(plain):
+            for item in reversed((history or [])[-8:]):
+                if item.get('role') != 'user':
+                    continue
+                previous = cls._normalize(str(item.get('content', '')))
+                previous_plain = re.sub(r'[^a-z0-9\s]', '', previous).strip()
+                if cls._example_followup(previous_plain):
+                    continue
+                if cls.classify(previous).kind == 'conversation':
+                    return SaikiIntent('conversation', frozenset())
+                break
         if re.search(r'operario|empleado|personal', text):
             return SaikiIntent('workforce', frozenset({'get_workforce'}))
         if re.search(r'disponibilidad|analiza (?:este registro|la informacion disponible)', text):
@@ -103,6 +116,22 @@ class SaikiIntentRouter:
         if re.search(r'\b(?:explica|explicame|conversemos|opinas|significa|que es|que son|por que)\b', text):
             return SaikiIntent('conversation', frozenset())
         return SaikiIntent('ambiguous', frozenset())
+
+    @staticmethod
+    def _general_advice(text):
+        # Advice about organizing a warehouse is not a request for its live stock.
+        return bool(re.search(
+            r'\b(?:como\s+(?:(?:puedo|podemos|se|debo)\s+)?|consejos?\s+para\s+|'
+            r'buenas practicas\s+para\s+)(?:organizar|ordenar|distribuir|almacenar|conservar|clasificar)\b',
+            text,
+        ))
+
+    @staticmethod
+    def _example_followup(plain):
+        return bool(re.fullmatch(
+            r'(?:(?:puedes|podrias) )?(?:dame |darme |ponme |muestrame )?'
+            r'(?:un |otro )?ejemplo(?: practico| concreto| sencillo)?(?: por favor)?', plain,
+        ))
 
     @classmethod
     def _history_has_predictive_request(cls, history):
