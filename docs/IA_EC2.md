@@ -150,3 +150,10 @@ No elimina ni deshabilita Apache ni su sitio predeterminado.
 Si falla una etapa, conservar el error y revisar antes de repetir. No se ha
 probado la emisión real desde la sesión de desarrollo; requiere ejecutar en EC2
 y validar el certificado, streaming y herramientas con verify_ec2.py.
+
+Si la primera emisión falla por timeout de conexión al puerto 80, verificar el
+grupo dedicado con configure_aws_network.py desde la PC, el firewall del sistema
+y el acceso HTTP externo. Una vez accesible, usar
+`bash backend/ai_service/install_ec2_apache.sh --resume-acme`. Este modo solo
+acepta el bootstrap HTTP exacto del instalador y exige que el servicio systemd
+todavía no exista; no reemplaza otros sitios ni una instalación completada.

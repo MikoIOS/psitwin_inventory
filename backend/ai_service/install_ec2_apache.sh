@@ -11,9 +11,22 @@ if [[ "$(id -un)" != ubuntu || ! -f "$ai_root/service.env" || ! -x "$ai_root/api
   echo 'Ejecutar como ubuntu, después de instalar la API y crear service.env.' >&2
   exit 1
 fi
-if [[ -e /etc/apache2/sites-available/psitwin-ai.conf || -e /etc/systemd/system/psitwin-ai.service ]]; then
-  echo 'Ya existe configuración psitwin-ai; detener y revisar antes de reemplazarla.' >&2
+if [[ -e /etc/systemd/system/psitwin-ai.service ]]; then
+  echo 'Ya existe el servicio psitwin-ai; detener y revisar antes de reemplazarlo.' >&2
   exit 1
+fi
+if [[ -e /etc/apache2/sites-available/psitwin-ai.conf ]]; then
+  if [[ "${1:-}" != --resume-acme ]]; then
+    echo 'Sitio existente. Para retomar un fallo ACME, usar --resume-acme después de revisar la red.' >&2
+    exit 1
+  fi
+  # Accept only the exact HTTP bootstrap emitted by this installer, never another site.
+  sudo python3 - <<'CHECK_BOOTSTRAP'
+from pathlib import Path
+expected = '<VirtualHost *:80>\n    ServerName 35.171.142.151\n    DocumentRoot /var/lib/psitwin-acme\n    <Directory /var/lib/psitwin-acme>\n        Options None\n        AllowOverride None\n        Require all granted\n    </Directory>\n</VirtualHost>\n'
+if Path('/etc/apache2/sites-available/psitwin-ai.conf').read_text() != expected:
+    raise SystemExit('El sitio no coincide con el bootstrap ACME. No se reemplazó nada.')
+CHECK_BOOTSTRAP
 fi
 if ! sudo systemctl is-active --quiet apache2; then
   echo 'Se requiere Apache activo. Detener y revisar.' >&2
